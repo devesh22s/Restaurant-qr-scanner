@@ -1,31 +1,34 @@
 import React from "react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+
 
 export default function Register() {
-    const {formData, setFormData} = useState({
-        fullname: "",
-        email:"",
-        password: "",
-        contact: ""
-    })
-      const handleChange = (e) => {
+  const [ formData, setFormData ] = useState({
+    fullname: "",
+    email: "",
+    password: "",
+    contact: "",
+  });
+    const navigate = useNavigate();
+  
+  const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e)=>{
-    e.preventDefault()
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-    const res = await fetch("http://localhost:3000/api/auth/register",{
-        method:"POST",
-        headers: { "Content-Type": "application/json" },
-         body: JSON.stringify(formData)
-
-    })
+    const res = await fetch("http://localhost:3000/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
     const data = await res.json();
     console.log("all data is ", data);
-    
-
-  }
+    navigate("/login");
+  };
   return (
     <div className="form-wrapper">
       <form className="p-4" onSubmit={handleSubmit}>
@@ -48,7 +51,6 @@ export default function Register() {
           <input
             type="email"
             name="email"
-            
             className="form-control"
             onChange={handleChange}
             placeholder="example@email.com"
@@ -62,8 +64,7 @@ export default function Register() {
             type="password"
             name="password"
             className="form-control"
-                        onChange={handleChange}
-
+            onChange={handleChange}
             placeholder="Enter password"
             required
           />
@@ -74,8 +75,7 @@ export default function Register() {
             type="number"
             name="contact"
             className="form-control"
-                        onChange={handleChange}
-
+            onChange={handleChange}
             placeholder="Enter contact"
             required
           />
@@ -89,8 +89,12 @@ export default function Register() {
       </form>
 
       <p className="text-center mt-3">Already have an account?</p>
-    <a href="/Login"><button type="submit" class="btn-submit">Login</button></a>
 
+      <Link to="/login">
+        <button type="button" className="btn-submit">
+          Login
+        </button>
+      </Link>
     </div>
   );
 }

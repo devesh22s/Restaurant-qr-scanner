@@ -57,6 +57,11 @@ export const login = async(req, res) => {
     }else{
     const accessToken = generatAccessToken({name: user.name, email: user.email, role:user.role})
     const refreshToken = generatRefershToken({name: user.name, email: user.email, role:user.role})
+
+    user.refreshToken = refreshToken
+    user.refreshTokenExpireTime = new Date(Date.now()+ 7*24*60*60*1000);
+    user.lastlogin = Date.now();
+    await user.save()
     
     res.status(200).json({
         message:"success",

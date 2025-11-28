@@ -1,8 +1,13 @@
 import React from "react";
 import { useState } from "react";
+import Home from "../Component/Home";
+import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 export default function Login() {
-  const { formData, setFormData } = useState({ email: "", password: "" });
+  const [formData, setFormData] = useState({ email: "", password: "" });
+  const navigate = useNavigate();
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -17,11 +22,13 @@ export default function Login() {
 
     const data = await res.json();
     console.log("Login Response:", data);
+
+    navigate("/main");
   };
 
   return (
     <div className="form-wrapper">
-      <form className="form p-4" onClick={handleSubmit}>
+      <form className="form p-4" onSubmit={handleSubmit}>
         <h2 className="form-title">Login</h2>
 
         <div className="mb-3">
@@ -29,7 +36,8 @@ export default function Login() {
           <input
             type="email"
             name="email"
-            onClick={handleChange}
+            onChange={handleChange}
+            value={formData.email}
             className="form-control"
             placeholder="Enter your email"
             required
@@ -41,7 +49,8 @@ export default function Login() {
           <input
             type="password"
             name="password"
-            onClick={handleChange}
+            onChange={handleChange}
+            value={formData.password}
             className="form-control"
             placeholder="Enter your password"
             required
@@ -55,10 +64,13 @@ export default function Login() {
         </div>
       </form>
 
-      <p className="text-center mt-3">Don't have an account?</p>
-      <a href="/register">
-        <button className="btn-submit">Register</button>
-      </a>
+      <p className="text-center mt-3">Already have an account?</p>
+
+      <Link to="/register">
+        <button type="button" className="btn-submit">
+          Login
+        </button>
+      </Link>
     </div>
   );
 }
