@@ -16,10 +16,6 @@
 
 ---
 
-## 📸 Project Banner  
-> (Add your project banner here if you want a premium one, I can generate it.)
-
----
 
 ## ⭐ Introduction  
 Restaurant QR Scanner is a **full-stack QR-based menu system** that allows customers to scan a table QR code and instantly view the restaurant’s digital menu — without any app download.
