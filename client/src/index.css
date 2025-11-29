@@ -1,160 +1,262 @@
 @import "tailwindcss";
 
-/* Full page center */
-.home-container {
-  height: 100vh;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: #f8f9fa;
-}
-
-/* Card */
-.home-card {
-  background: white;
-  width: 350px;
-  padding: 30px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-  border-radius: 12px;
-  text-align: center;
-}
-
-.home-card h1 {
-  margin-bottom: 25px;
-  font-size: 28px;
-  font-weight: 600;
-  color: #333;
-}
-
-/* Buttons */
-.home-btn {
-  width: 100%;
-  padding: 12px;
-  border: none;
-  background: #007bff;
-  color: white;
-  font-size: 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  margin-bottom: 15px;
-  transition: 0.3s;
-}
-
-.home-btn:hover {
-  background: #0056b3;
-}
-
-/* Guest button */
-.home-btn.guest {
-  background: #6c757d;
-}
-
-.home-btn.guest:hover {
-  background: #545b62;
-}
-
-
-
-
-/* ============================
-   LOGIN & REGISTER PAGE FORM
-============================ */
+/* ===========================
+   DARK + GOLD PREMIUM THEME
+=========================== */
 
 body {
   margin: 0;
   padding: 0;
-  background: #f4f6f9;
+  background: #0d0d0d;
   font-family: "Poppins", sans-serif;
+  color: #fff;
 }
 
-/* Wrapper to center card */
-.form-wrapper {
+/* ===========================
+   HOME HERO SECTION
+=========================== */
+
+.home-hero {
+  height: 100vh;
   width: 100%;
-  min-height: 100vh;
+  background: linear-gradient(to bottom right, #000000, #1a1a1a);
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
 }
 
-/* Card design */
-.form {
-  width: 380px;
-  background: #ffffff;
-  padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+.hero-content {
+  text-align: center;
 }
 
-/* Title */
+.hero-title {
+  font-size: 40px;
+  font-weight: 700;
+  color: #f5d26a; /* GOLD */
+  margin-bottom: 10px;
+}
+
+.hero-subtitle {
+  font-size: 16px;
+  color: #dcdcdc;
+  margin-bottom: 40px;
+}
+
+.hero-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 260px;
+  margin: auto;
+}
+
+/* Buttons */
+.hero-btn {
+  padding: 12px;
+  font-size: 17px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  border: none;
+  transition: 0.3s;
+}
+
+/* Gold Filled */
+.hero-btn.primary {
+  background: #f5d26a;
+  color: #000;
+}
+
+.hero-btn.primary:hover {
+  background: #c4a54e;
+}
+
+/* Black with Gold Border */
+.hero-btn.secondary {
+  background: transparent;
+  border: 2px solid #f5d26a;
+  color: #f5d26a;
+}
+
+.hero-btn.secondary:hover {
+  background: #f5d26a;
+  color: #000;
+}
+
+/* Guest */
+.hero-btn.guest {
+  background: #333;
+  color: #eee;
+}
+
+.hero-btn.guest:hover {
+  background: #555;
+}
+
+/* ===========================
+   LOGIN & REGISTER FORMS
+=========================== */
+
+.form-wrapper {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #0e0e0e;
+}
+
+.form {
+  width: 380px;
+  background: #1a1a1a;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(255, 215, 0, 0.1);
+}
+
 .form-title {
   text-align: center;
   font-size: 28px;
   font-weight: 600;
+  color: #f5d26a;
   margin-bottom: 20px;
-  color: #333;
 }
 
-/* Labels */
 .form-label {
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 5px;
+  color: #ccc;
 }
 
-/* Inputs */
 .form-control {
   width: 100%;
   padding: 12px;
-  font-size: 15px;
+  background: #111;
+  color: #fff;
   border-radius: 8px;
-  border: 1px solid #ccc;
-  outline: none;
+  border: 1px solid #333;
   margin-bottom: 15px;
-  transition: 0.3s;
 }
 
 .form-control:focus {
-  border-color: #0066ff;
-  box-shadow: 0 0 4px rgba(0, 102, 255, 0.3);
+  border-color: #f5d26a;
+  box-shadow: 0 0 5px rgba(245, 210, 106, 0.4);
 }
 
-/* Buttons */
+/* Submit Button */
 .btn-submit {
   width: 100%;
   padding: 12px;
-  background: #0066ff;
+  background: #f5d26a;
   border: none;
-  color: #fff;
+  color: #000;
   font-size: 16px;
-  font-weight: 500;
   border-radius: 8px;
   cursor: pointer;
   transition: 0.3s;
 }
 
 .btn-submit:hover {
-  background: #0047b3;
-}
-
-/* Center text */
-.text-center {
-  text-align: center;
+  background: #c4a54e;
 }
 
 /* Below text */
 p {
-  margin-top: 20px;
-  margin-bottom: 10px;
-  color: #555;
+  margin-top: 10px;
+  color: #aaa;
   font-size: 14px;
 }
 
-/* Button inside anchor */
 a button {
   width: 380px;
   margin-top: 10px;
 }
 
 
+/* ==========================
+   RESTAURANT MAIN PAGE
+========================== */
+
+.main-hero {
+  height: 100vh;
+  width: 100%;
+  background: url("https://images.unsplash.com/photo-1555992336-03a23c96b23f") no-repeat center/cover;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+/* Dark overlay */
+.main-hero::before {
+  content: "";
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.65);
+  top: 0;
+  left: 0;
+}
+
+.main-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  color: #fff;
+  width: 80%;
+}
+
+.main-title {
+  font-size: 50px;
+  font-weight: 700;
+  color: #f5d26a; /* GOLD */
+  margin-bottom: 15px;
+}
+
+.main-subtitle {
+  font-size: 20px;
+  color: #e0e0e0;
+  margin-bottom: 40px;
+}
+
+/* Buttons */
+.main-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.main-btn {
+  padding: 12px 28px;
+  font-size: 18px;
+  cursor: pointer;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: 0.3s;
+  border: none;
+}
+
+.main-btn.primary {
+  background: #f5d26a;
+  color: #000;
+}
+
+.main-btn.primary:hover {
+  background: #c4a54e;
+}
+
+.main-btn.secondary {
+  background: transparent;
+  border: 2px solid #f5d26a;
+  color: #f5d26a;
+}
+
+.main-btn.secondary:hover {
+  background: #f5d26a;
+  color: #000;
+}
+
+.main-tagline {
+  margin-top: 30px;
+  font-size: 16px;
+  letter-spacing: 2px;
+  color: #ccc;
+}
