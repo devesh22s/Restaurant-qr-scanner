@@ -8,7 +8,7 @@ const app = express()
 
 app.use(express.json());
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: ["http://localhost:5173", "https://restaurant-qr-scanner-1qo7.vercel.app/"],  // never use * 
   credentials: true
 }));
 //NOTE  fn is used to connect mongodb

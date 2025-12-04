@@ -1,100 +1,155 @@
-import React from "react";
-import { useState } from "react";
+import React, { useState } from "react";
+import { useDispatch } from "react-redux";
 import { Link } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+import { register } from "../redux/authSlice";
+import {
+  UserPlus,
+  ArrowRight,
+  Sparkles,
+  Gift,
+  Award,
+  Percent,
+} from "lucide-react";
 
 
 export default function Register() {
-  const [ formData, setFormData ] = useState({
-    fullname: "",
-    email: "",
+  const dispatch = useDispatch();
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",  
     password: "",
     contact: "",
   });
-    const navigate = useNavigate();
-  
-  const handleChange = (e) => {
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
 
-  const handleSubmit = async (e) => {
+  const handleConfirmPasswordChange = (e) =>
+    setConfirmPassword(e.target.value);
+
+  const handleSubmit = (e) => {
     e.preventDefault();
+    if (formData.password !== confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+    dispatch(register(formData));
 
-    const res = await fetch("http://localhost:3000/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formData),
-    });
-    const data = await res.json();
-    console.log("all data is ", data);
-    navigate("/login");
   };
+
   return (
-    <div className="form-wrapper">
-      <form className="p-4" onSubmit={handleSubmit}>
-        <h2 className="form-title">Registration Form</h2>
+    <div className="register-wrapper">
+      {/* Registration Form */}
+      <form className="register-form" onSubmit={handleSubmit}>
+        <h1 className="register-title">Create Account</h1>
+        <p className="register-subtitle">
+          Join us and start earning rewards today
+        </p>
 
-        <div className="mb-3">
-          <label className="form-label">Full Name</label>
-          <input
-            type="text"
-            name="fullName"
-            onChange={handleChange}
-            className="form-control"
-            placeholder="Enter full name"
-            required
-          />
+        <label className="register-label">Full Name</label>
+        <input
+          type="text"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          className="register-input"
+          placeholder="Enter full name"
+          required
+        />
+
+        <label className="register-label">Email</label>
+        <input
+          type="email"
+          name="email"
+          value={formData.email}
+          onChange={handleChange}
+          className="register-input"
+          placeholder="example@email.com"
+          required
+        />
+        <label className="register-label">Contact</label>
+        <input
+          type="text"
+          name="contact"
+          value={formData.contact}
+          onChange={handleChange}
+          className="register-input"
+          placeholder="9876543210"
+          required
+        />
+
+        <label className="register-label">Password</label>
+        <input
+          type="password"
+          name="password"
+          value={formData.password}
+          onChange={handleChange}
+          className="register-input"
+          placeholder="Enter password"
+          required
+        />
+
+        <label className="register-label">Confirm Password</label>
+        <input
+          type="password"
+          value={confirmPassword}
+          onChange={handleConfirmPasswordChange}
+          className="register-input"
+          placeholder="Confirm password"
+          required
+        />
+
+        
+
+        <div>
+          <input type="checkbox" id="terms" />
+          <label htmlFor="terms" className="register-terms">
+            I agree to the{" "}
+            <a href="#">Terms</a> and <a href="#">Privacy Policy</a>
+          </label>
         </div>
 
-        <div className="mb-3">
-          <label className="form-label">Email Address</label>
-          <input
-            type="email"
-            name="email"
-            className="form-control"
-            onChange={handleChange}
-            placeholder="example@email.com"
-            required
-          />
-        </div>
+        <button type="submit" className="register-submit">
+          <UserPlus className="w-5 h-5" />
+          <span>Create Account</span>
+        </button>
 
-        <div className="mb-3">
-          <label className="form-label">Password</label>
-          <input
-            type="password"
-            name="password"
-            className="form-control"
-            onChange={handleChange}
-            placeholder="Enter password"
-            required
-          />
-        </div>
-        <div className="mb-3">
-          <label className="form-label">Contact</label>
-          <input
-            type="number"
-            name="contact"
-            className="form-control"
-            onChange={handleChange}
-            placeholder="Enter contact"
-            required
-          />
-        </div>
-
-        <div className="text-center">
-          <button type="submit" className="btn-submit">
-            Register
-          </button>
+        <div className="register-footer">
+          Already have an account?{" "}
+          <Link to="/login">
+            Sign in <ArrowRight className="w-4 h-4 inline" />
+          </Link>
         </div>
       </form>
+      
 
-      <p className="text-center mt-3">Already have an account?</p>
+      {/* Benefits */}
+      <div className="register-benefits">
+        <div className="register-benefit-card">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-yellow-400" />
+            <h3>New Member Benefits</h3>
+          </div>
+          <p>20% Welcome Discount on your first order</p>
+        </div>
 
-      <Link to="/login">
-        <button type="button" className="btn-submit">
-          Login
-        </button>
-      </Link>
+        <div className="register-benefit-card">
+          <div className="flex items-center gap-2">
+            <Award className="w-5 h-5 text-yellow-400" />
+            <h3>Loyalty Points Program</h3>
+          </div>
+          <p>Earn points on every order and redeem for discounts.</p>
+        </div>
+
+        <div className="register-benefit-card">
+          <div className="flex items-center gap-2">
+            <Percent className="w-5 h-5 text-yellow-400" />
+            <h3>Membership Tiers</h3>
+          </div>
+          <p>Bronze, Silver, and Gold memberships with exclusive perks.</p>
+        </div>
+      </div>
     </div>
   );
 }

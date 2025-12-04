@@ -4,6 +4,8 @@ import Login from './pages/Login';
 import Home from './Component/Home'
 import Main from './Component/Main';
 import Register from './pages/Register';
+import Protectedroute from './Component/Protectedroute';
+import OpenRoutes from './Component/OpenRoutes';
 
 
 const App = () => {
@@ -12,10 +14,14 @@ const App = () => {
     <Router>
 
       <Routes>
-        <Route path='/' element={<Home/>}/>
-        <Route path="/main" element={<Main/>} />
-        <Route path='/register' element={<Register/>}/>
-        <Route path='/login' element={<Login/>}/>
+        <Route path='/' element={
+          // required access token to get this page
+          <Protectedroute>
+            <Home/>
+            </Protectedroute>
+          }/>
+        <Route path='/register' element={<OpenRoutes><Register/></OpenRoutes>}/>
+        <Route path='/login' element={<OpenRoutes><Login/></OpenRoutes>}/>
 
       </Routes>
       
