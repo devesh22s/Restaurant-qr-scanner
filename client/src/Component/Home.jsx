@@ -21,7 +21,7 @@ const Home = () => {
             Register
           </button>
 
-          <button className="hero-btn guest" onClick={() => nav("/guest")}>
+          <button className="hero-btn guest" onClick={() => nav("/Welcome")}>
             Continue as Guest
           </button>
         </div>

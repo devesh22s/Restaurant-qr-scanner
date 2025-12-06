@@ -2,10 +2,10 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import Home from "./Component/Home";
-import Main from "./Component/Main";
 import Register from "./pages/Register";
 import Protectedroute from "./Component/Protectedroute";
 import OpenRoutes from "./Component/OpenRoutes";
+import Welcome from "./pages/Welcome";
 
 const App = () => {
   return (
