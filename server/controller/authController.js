@@ -43,6 +43,7 @@ export const login = async(req, res) => {
     try{
 
 
+
     const {email, password} = req.body
     const user = await myModel.findOne({email})
     if (!user) {
@@ -55,8 +56,8 @@ export const login = async(req, res) => {
             message: "Wrong password"
         })
     }else{
-    const accessToken = generatAccessToken({name: user.name, email: user.email, role:user.role})
-    const refreshToken = generatRefershToken({name: user.name, email: user.email, role:user.role})
+    const accessToken = generatAccessToken({name: user.name, email: user.email, role:user.role, id: user._id})
+    const refreshToken = generatRefershToken({name: user.name, email: user.email, role:user.role, id: user._id})
 
     user.refreshToken = refreshToken
     user.refreshTokenExpireTime = new Date(Date.now()+ 7*24*60*60*1000);
@@ -79,6 +80,5 @@ export const login = async(req, res) => {
         })
 
     }
-
 
 }
