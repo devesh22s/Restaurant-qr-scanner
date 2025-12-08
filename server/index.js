@@ -5,7 +5,7 @@ import tablerouter from './routes/table.route.js';
 import cors from "cors";
 import verify from './middleware/verify.js';
 import checkRole from './middleware/checkRole.js';
-
+import sessionrouter from './routes/session.route.js'
 const app = express()
 
 
@@ -30,6 +30,15 @@ app.get("/menu", verify, checkRole(['customer', 'admin']), (req, res)=>{
   res.send("menu fetched")
 })
 
+ 
+//  global error handler working
+// app.use((err, reqe, res, next)=>{
+//   if(err){
+//     res.status(err.status || 500).json({
+//       message: err?.message || "server error"
+//       })
+//   }
+// })
 
 
 app.get("/", (req, res) => {
@@ -39,6 +48,8 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authrouter);
 app.use("/api/auth", tablerouter )
+app.use("/api/auth", sessionrouter )
+
 
 
 app.listen(3000, ()=>{
