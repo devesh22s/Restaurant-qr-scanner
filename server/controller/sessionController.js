@@ -14,7 +14,10 @@ export const sessonController = async(req, res)=>{
         console.log(sessionToken);
         console.log(tableNumber);
         
-        
+        const expiresAt = new Date();
+        expiresAt.setHours(24);
+
+        //  fetch session token => expiresAt : {greater then new Date()}
         
     }catch(error){
 

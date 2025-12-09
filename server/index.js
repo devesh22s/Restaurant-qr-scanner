@@ -32,13 +32,15 @@ app.get("/menu", verify, checkRole(['customer', 'admin']), (req, res)=>{
 
  
 //  global error handler working
-// app.use((err, reqe, res, next)=>{
-//   if(err){
-//     res.status(err.status || 500).json({
-//       message: err?.message || "server error"
-//       })
-//   }
-// })
+app.use((err, reqe, res, next)=>{
+  if(err){
+
+    // here we need to create log file and call the logger.error method to save the information regarding every error we will get in this project
+    res.status(err.status || 500).json({
+      message: err?.message || "server error"
+      })
+  }
+})
 
 
 app.get("/", (req, res) => {
