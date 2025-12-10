@@ -5,14 +5,14 @@ import Home from "./Component/Home";
 import Register from "./pages/Register";
 import Protectedroute from "./Component/Protectedroute";
 import OpenRoutes from "./Component/OpenRoutes";
-// import Welcome from "./pages/Welcome";
+import Welcome from "./pages/Welcome";
 
 const App = () => {
   return (
     <>
       <Router>
         <Routes>
-          {/* <Route path="/welcome" element={<Welcome />} /> */}
+          <Route path="/welcome" element={<Welcome />} />
           <Route
             path="/"
             element={

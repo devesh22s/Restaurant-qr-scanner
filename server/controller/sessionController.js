@@ -1,7 +1,9 @@
+import Session from "../model/Session.js"
 import Table from "../model/table.js"
 import crypto from 'crypto'
+import { SuccessResponse } from "../utils/SuccessResponse.js"
 
-export const sessonController = async(req, res)=>{
+export const sessonController = async(req, res, next)=>{
     try{
         const {deviceId, qrslug} = req.body
 
@@ -18,9 +20,16 @@ export const sessonController = async(req, res)=>{
         expiresAt.setHours(24);
 
         //  fetch session token => expiresAt : {greater then new Date()}
+
+        const session = new Session({
+            deviceId, tableNumber, sessionToken, expiresAt
+        })
+        await  session.save()
+
+        SuccessResponse(res, 201, session)
         
     }catch(error){
-
+        next(error)
 
     }
 
