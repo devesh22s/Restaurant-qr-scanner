@@ -52,6 +52,10 @@ app.use("/api/auth", authrouter);
 app.use("/api/auth", tablerouter )
 app.use("/api/auth", sessionrouter )
 
+// app.get("/qr", (req, res)=>{
+//   res.download('')   // this route will help to download qr 
+// })
+
 
 
 app.listen(3000, ()=>{

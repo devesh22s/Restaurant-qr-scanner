@@ -1,5 +1,6 @@
 import {createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import axios from 'axios' 
+import { stat } from 'fs';
 
 export const login = createAsyncThunk('/base/login', async(data, thunkApi)=>{
     try{
@@ -34,15 +35,26 @@ const authSlice = createSlice({
     initialState: {
         loading: false,
         error : null,
-        name: null,
+        name: localStorage.get("name") || null,
+        role:localStorage.get("role") || null,
         email: null,
-        role:null,
         accessToken : null,
         refershToken: null
 
 
     },
-    reducer:{},
+    reducer:{
+      logout: (state, action)=>{
+        state.name = null
+        state.email = null
+        state.role = null
+        localStorage.removeItem("accessToken")
+        localStorage.removeItem("name")
+        localStorage.removeItem("role")
+        state.refershToken = null
+        state.accessToken = null
+      }
+    },
 
     extraReducers: (builder)=>{
         builder.addCase(login.pending, (state)=>{
@@ -59,6 +71,9 @@ const authSlice = createSlice({
             localStorage.setItem("accessToken", action.payload.accessToken)
             localStorage.setItem("refreshToken", action.payload.refreshToken)
             state.loading = false;
+
+            localStorage.setItem("role", action.payload.data.role)
+            localStorage.setItem("name", action.payload.data.name)
             
         }).addCase(login.rejected, (state, action)=>{
             console.log(action.payload)
@@ -84,3 +99,4 @@ const authSlice = createSlice({
 // console.log(authSlice);
 
 export default authSlice.reducer
+export const {logout} = authSlice.actions

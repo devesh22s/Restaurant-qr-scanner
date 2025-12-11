@@ -9,7 +9,7 @@ export const sessonController = async(req, res, next)=>{
 
         // using this slug i will find the tables where user scan the qr
         const table = await Table.findOne({qrslug})
-        console.log(table);
+        console.log("table", table);
 
         const tableNumber = table.tableNumber;
         const sessionToken = crypto.randomBytes(42).toString("hex");

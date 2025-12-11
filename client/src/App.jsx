@@ -13,6 +13,8 @@ const App = () => {
       <Router>
         <Routes>
           <Route path="/welcome" element={<Welcome />} />
+          <Route path="/welcome/:id" element={<Welcome />} />
+
           <Route
             path="/"
             element={

@@ -15,7 +15,7 @@ const verify = async(req, res, next) =>{
             
             // req.user = decoded    // here we make a request key with name of user, through which we check role in next middleware
 
-            const userData = await myModel.findById(decoded.id).select('-passwordHash')
+            const userData = await myModel.findById(decoded.id).select('-passwordHash')  // password not visbile here
             // console.log(userData);
 
             req.user = userData

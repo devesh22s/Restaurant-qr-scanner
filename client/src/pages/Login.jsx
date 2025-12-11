@@ -22,10 +22,15 @@ export default function Login() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    dispatch(login(formData))
-      .unwrap()
-      .then(() => navigate("/"));
+    dispatch(login(formData)).unwrap().then(() => {
+      navigate("/")
+      localStorage.removeItem("sessionToken") // if the guest login then we need to remove that session token
+    
+    });
+    
+
   };
+
 
   return (
     <div className="login-wrapper">
