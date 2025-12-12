@@ -1,220 +1,172 @@
-import React, { useEffect, useRef } from "react";
-import axios from "axios";
+import React, { useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchMenuItems, setSelectedCategory } from '../redux/menuSlice';
+import Hero from './Hero';
 
-const menuItems = [
-  {
-    id: 1,
-    name: "Truffle Butter Steak",
-    price: "₹2,499",
-    img: "https://images.unsplash.com/photo-1600891964599-f61ba0e24092",
-    desc: "Premium Australian beef with truffle butter"
-  },
-  {
-    id: 2,
-    name: "Royal Seafood Platter",
-    price: "₹3,199",
-    img: "https://images.unsplash.com/photo-1553621042-f6e147245754",
-    desc: "Lobster, prawns & exotic seafood"
-  },
-  {
-    id: 3,
-    name: "Golden Saffron Biryani",
-    price: "₹1,899",
-    img: "https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a",
-    desc: "Handcrafted royal dum biryani"
-  }
-];
+
+const LoadingSkeleton = () => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {[...Array(6)].map((_, index) => (
+      <div
+        key={index}
+        className="bg-gray-900/50 border border-gray-800 rounded-lg overflow-hidden animate-pulse"
+      >
+     
+        <div className="h-48 w-full bg-gray-800/50"></div>
+        
+     
+        <div className="p-4 space-y-3">
+          <div className="flex items-start justify-between">
+            <div className="h-5 w-32 bg-gray-800/50 rounded"></div>
+            <div className="h-5 w-16 bg-gray-800/50 rounded"></div>
+          </div>
+          <div className="space-y-2">
+            <div className="h-4 w-full bg-gray-800/50 rounded"></div>
+            <div className="h-4 w-3/4 bg-gray-800/50 rounded"></div>
+          </div>
+          <div className="flex items-center justify-between pt-2">
+            <div className="h-3 w-20 bg-gray-800/50 rounded"></div>
+            <div className="h-8 w-24 bg-gray-800/50 rounded"></div>
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
 
 const Home = () => {
-  const menuRef = useRef(null);
-  const tableRef = useRef(null);
+  const dispatch = useDispatch();
+  const { menuItems, categories, loading, error, selectedCategory, searchQuery } = useSelector((state) => state.menu);
 
   useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    if (token) {
-      axios
-        .get("http://localhost:3000/menu", {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        .catch(() => {});
-    }
-  }, []);
+    dispatch(fetchMenuItems(selectedCategory));
+  }, [dispatch, selectedCategory, searchQuery]);
 
-  const scrollTo = (ref) => {
-    ref.current.scrollIntoView({ behavior: "smooth" });
+  const handleCategoryChange = (category) => {
+    dispatch(setSelectedCategory(category));
   };
 
+  if (loading) {
+    return (
+      <div className="space-y-8">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Our Menu</h1>
+          <p className="text-gray-400">Discover our delicious vegetarian offerings</p>
+        </div>
+
+        {/* Loading skeleton */}
+        <LoadingSkeleton />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Our Menu</h1>
+          <p className="text-gray-400">Discover our delicious vegetarian offerings</p>
+        </div>
+        <div className="flex flex-col items-center justify-center min-h-[40vh] bg-gray-900/30 border border-red-500/20 rounded-lg p-8">
+          <div className="text-red-400 text-lg font-semibold mb-2">Error loading menu</div>
+          <div className="text-gray-400 text-sm mb-4">{error}</div>
+          <button
+            onClick={() => dispatch(fetchMenuItems(selectedCategory))}
+            className="px-4 py-2 bg-white text-black rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={styles.page}>
+    <div>
+      {/* Hero Section */}
+      <Hero />
 
-      {/* NAVBAR */}
-      <nav style={styles.navbar}>
-        <h2 style={styles.logo}>THE ROYAL PLATE</h2>
-        <div style={styles.navLinks}>
-          <span onClick={() => scrollTo(menuRef)}>Menu</span>
-          <span onClick={() => scrollTo(tableRef)}>Tables</span>
+      {/* Menu Section */}
+      <div id="menu-section" className="space-y-8 pt-12">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Our Menu</h1>
+          <p className="text-gray-400">Discover our delicious vegetarian offerings</p>
         </div>
-      </nav>
 
-      {/* HERO */}
-      <section style={styles.hero}>
-        <div style={styles.overlay}>
-          <h1 style={styles.heroTitle}>7-Star Fine Dining</h1>
-          <p style={styles.heroSubtitle}>Luxury • Taste • Excellence</p>
+     
+      {categories.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {categories.map((category) => (
+            <button
+              key={category}
+              onClick={() => handleCategoryChange(category)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                selectedCategory === category
+                  ? 'bg-white text-black'
+                  : 'bg-gray-800/50 text-gray-300 hover:bg-gray-800/70 border border-gray-700/50'
+              }`}
+            >
+              {category}
+            </button>
+          ))}
         </div>
-      </section>
+      )}
 
-      {/* MENU */}
-      <section ref={menuRef} style={styles.menuSection}>
-        <h2 style={styles.sectionTitle}>Signature Menu</h2>
-        <div style={styles.grid}>
-          {menuItems.map(item => (
-            <div key={item.id} style={styles.card}>
-              <img src={item.img} alt={item.name} style={styles.image} />
-              <div style={styles.cardBody}>
-                <h3>{item.name}</h3>
-                <p style={styles.desc}>{item.desc}</p>
-                <span style={styles.price}>{item.price}</span>
+   
+      {menuItems.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-gray-400">No menu items found</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {menuItems.map((item) => (
+            <div
+              key={item._id}
+              className="bg-gray-900/50 border border-gray-800 rounded-lg overflow-hidden hover:border-gray-700 transition-colors"
+            >
+              {/* Image */}
+              <div className="relative h-48 w-full overflow-hidden">
+                <img
+                  src={item.image}
+                  alt={item.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
+                  }}
+                />
+                {!item.isAvailable && (
+                  <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-semibold">
+                    Unavailable
+                  </div>
+                )}
+              </div>
+
+              {/* Content */}
+              <div className="p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="text-lg font-semibold text-white">{item.name}</h3>
+                  <span className="text-lg font-bold text-white ml-2">
+                    ₹{item.price}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-400 mb-3 line-clamp-2">{item.description}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500 uppercase tracking-wider">
+                    {item.category}
+                  </span>
+                  <button className="px-4 py-2 bg-white text-black rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors">
+                    Add to Cart
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
-      </section>
-
-      {/* TABLE SECTION */}
-      <section ref={tableRef} style={styles.tableSection}>
-        <h2 style={styles.sectionTitle}>Luxury Dining Tables</h2>
-        <p style={styles.tableText}>
-          Experience elite seating with private royal tables, candle-lit
-          ambience and personalized service.
-        </p>
-
-        <div style={styles.tableGrid}>
-          <div style={styles.tableCard}>Table 1 – VIP</div>
-          <div style={styles.tableCard}>Table 2 – Royal Family</div>
-          <div style={styles.tableCard}>Table 3 – Private Cabin</div>
-          <div style={styles.tableCard}>Table 4 – Ocean View</div>
-        </div>
-      </section>
-
+      )}
+      </div>
     </div>
   );
 };
 
 export default Home;
-
-/* ---------------- STYLES ---------------- */
-
-const styles = {
-  page: {
-    fontFamily: "Poppins, Arial",
-    backgroundColor: "#0b0b0b",
-    color: "#fff"
-  },
-
-  navbar: {
-    position: "fixed",
-    top: 0,
-    width: "100%",
-    height: "70px",
-    background: "rgba(0,0,0,0.9)",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "0 40px",
-    zIndex: 1000
-  },
-  logo: {
-    color: "#d4af37",
-    letterSpacing: "2px"
-  },
-  navLinks: {
-    display: "flex",
-    gap: "30px",
-    cursor: "pointer"
-  },
-
-  hero: {
-    height: "100vh",
-    backgroundImage:
-      'url("https://images.unsplash.com/photo-1414235077428-338989a2e8c0")',
-    backgroundSize: "cover",
-    backgroundPosition: "center"
-  },
-  overlay: {
-    height: "100%",
-    background: "rgba(0,0,0,0.65)",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    alignItems: "center",
-    textAlign: "center"
-  },
-  heroTitle: {
-    fontSize: "4rem"
-  },
-  heroSubtitle: {
-    color: "#d4af37",
-    marginTop: "10px"
-  },
-
-  menuSection: {
-    padding: "100px 40px"
-  },
-  tableSection: {
-    padding: "100px 40px",
-    background: "#111"
-  },
-
-  sectionTitle: {
-    textAlign: "center",
-    fontSize: "2.5rem",
-    marginBottom: "50px"
-  },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: "30px"
-  },
-  card: {
-    background: "#151515",
-    borderRadius: "14px",
-    overflow: "hidden"
-  },
-  image: {
-    width: "100%",
-    height: "220px",
-    objectFit: "cover"
-  },
-  cardBody: {
-    padding: "20px"
-  },
-  desc: {
-    color: "#bbb",
-    fontSize: "0.9rem",
-    margin: "10px 0"
-  },
-  price: {
-    color: "#d4af37",
-    fontWeight: "bold"
-  },
-
-  tableText: {
-    textAlign: "center",
-    maxWidth: "600px",
-    margin: "0 auto 40px",
-    color: "#ccc"
-  },
-  tableGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: "20px"
-  },
-  tableCard: {
-    background: "#1a1a1a",
-    padding: "30px",
-    textAlign: "center",
-    borderRadius: "12px",
-    border: "1px solid #d4af37"
-  }
-};

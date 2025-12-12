@@ -34,15 +34,15 @@ const authSlice = createSlice({
     initialState: {
         loading: false,
         error : null,
-        name: localStorage.get("name") || null,
-        role:localStorage.get("role") || null,
+        name: localStorage.getItem("name") || null,
+        role:localStorage.getItem("role") || null,
         email: null,
         accessToken : null,
         refershToken: null
 
 
     },
-    reducer:{
+    reducers:{
       logout: (state, )=>{
         state.name = null
         state.email = null
