@@ -6,10 +6,12 @@ import Register from "./pages/Register";
 import Protectedroute from "./Component/Protectedroute";
 import OpenRoutes from "./Component/OpenRoutes";
 import Welcome from "./pages/Welcome";
+import { ToastProvider } from "./context/ToastContext";
+import Dashboard from "./Component/Dashboard";
 
 const App = () => {
   return (
-    <>
+    <ToastProvider>
       <Router>
         <Routes>
           <Route path="/welcome" element={<Welcome />} />
@@ -40,9 +42,17 @@ const App = () => {
               </OpenRoutes>
             }
           />
+          <Route
+            path="/dashboard"
+            element={
+             
+                <Dashboard />
+              
+            }
+          />
         </Routes>
       </Router>
-    </>
+    </ToastProvider>
   );
 };
 

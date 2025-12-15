@@ -4,14 +4,14 @@ import { logout } from '../redux/authSlice';
 
 import { setSearchQuery } from '../redux/menuSlice';
 import { UtensilsCrossed, User, LogOut, Menu, X, ChevronDown, ShoppingCart, Search } from 'lucide-react';
-// import { useToast } from '../context/ToastContext';
 import Footer from './Footer';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 
 const AuthenticatedLayout = ({ children }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  // const toast = useToast();
+  const toast = useToast();
   const { name, email, role } = useSelector((state) => state.auth);
   const searchQuery = useSelector((state) => state.menu.searchQuery);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -28,7 +28,7 @@ const AuthenticatedLayout = ({ children }) => {
 
   const handleLogout = () => {
     dispatch(logout());
-    // toast.success('Logged out successfully');
+    toast.success('Logged out successfully');
     navigate('/login');
   };
 
@@ -95,10 +95,12 @@ const AuthenticatedLayout = ({ children }) => {
               {/* Navbar - only for admin */}
               {isAdmin && (
                 <nav className="hidden md:flex items-center gap-8">
-                  <a href="#" className="text-gray-400 hover:text-yellow-400 transition-colors text-xs uppercase tracking-widest font-semibold relative group">
+                  <Link to ="/dashboard"
+                   className="text-gray-400 hover:text-yellow-400 transition-colors text-xs uppercase tracking-widest font-semibold relative group"> 
                     Dashboard
                     <span className="absolute -bottom-1 left-0 w-0 h-px bg-yellow-500 transition-all group-hover:w-full"></span>
-                  </a>
+                  
+                  </Link>
                   <a href="#" className="text-gray-400 hover:text-yellow-400 transition-colors text-xs uppercase tracking-widest font-semibold relative group">
                     Menu
                     <span className="absolute -bottom-1 left-0 w-0 h-px bg-yellow-500 transition-all group-hover:w-full"></span>
@@ -240,9 +242,11 @@ const AuthenticatedLayout = ({ children }) => {
                 {/* Admin only nav items */}
                 {isAdmin && (
                   <div className="space-y-1">
-                    <a href="#" className="block px-4 py-3 text-gray-400 hover:text-yellow-400 hover:bg-white/5 rounded-lg transition-colors text-sm font-medium border-l-2 border-transparent hover:border-yellow-500">
+                    <Link to = "/dashboard" className="block px-4 py-3 text-gray-400 hover:text-yellow-400 hover:bg-white/5 rounded-lg transition-colors text-sm font-medium border-l-2 border-transparent hover:border-yellow-500">
+                   
                       Dashboard
-                    </a>
+                
+                    </Link>
                     <a href="#" className="block px-4 py-3 text-gray-400 hover:text-yellow-400 hover:bg-white/5 rounded-lg transition-colors text-sm font-medium border-l-2 border-transparent hover:border-yellow-500">
                       Menu
                     </a>

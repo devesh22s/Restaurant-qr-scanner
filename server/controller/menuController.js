@@ -14,16 +14,17 @@ export const createMenu = async (req, res, next) => {
         data: menuItem,
         message: "New menu item added"
     })
-    res.send(JSON.stringify(result));
   } catch (error) {
-    console.log(error);
+     return res.status(500).json({
+      message: error.message
+     })
   }
 };
 
 
-//  get menu items
+//  get menu items with category
 
-export const menuCategory = async(req, res)=>{
+export const getmenuCategory = async(req, res)=>{
   try {
     const {category} = req.query;
     console.log(req.query);
@@ -43,4 +44,55 @@ export const menuCategory = async(req, res)=>{
     
   }
 
+}
+
+
+
+// update menu items 
+
+export const updateMenu = async(req, res)=>{
+  try {
+    const {id} = req.params
+    let mydata = {...req.body}
+   
+
+    // if image is provided then upload new image to cloudinary
+    if(req.file){
+
+      const filePath = req?.file?.path || null;
+    const result = await cloudinary.uploader.upload(filePath, {folder: "menu"});
+    mydata.image = result.secure_url
+
+    }
+    const menuUpdate = await Menu.findByIdAndUpdate(id, mydata, {new: true})
+    if(!menuUpdate){
+      res.status(400).json({message: "Menu item not found"})
+    }
+    res.status(200).json({messsage: "Menu updated successfully"})
+
+  } catch (error) {
+    res.status(500).json({message: error.message})
+    
+  }
+}
+
+
+
+// delete menu
+export const deleteMenu = async(req, res)=>{
+  try {
+    const {id} = req.params
+   
+
+   
+    const deletemenu = await Menu.findByIdAndDelete(id)
+    if(!deletemenu){
+      res.status(400).json({message: "Menu item not found"})
+    }
+    res.status(200).json({messsage: "Menu delted successfully"})
+
+  } catch (error) {
+    res.status(500).json({message: error.message})
+    
+  }
 }
