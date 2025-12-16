@@ -16,6 +16,13 @@ export const register = async(req, res)=>{
 
         const data = {name, email, contact, passwordHash}
         const newUser = await myModel.create(data)
+
+
+        // integrate mail services
+        
+
+
+
         res.status(201).json({
             message: "success",
             data: newUser

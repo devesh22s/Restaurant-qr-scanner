@@ -2,7 +2,7 @@ import Cart from "../model/cart.js";
 import Menu from "../model/menu.js";
 
 
-// Helper function to update totalCartPrice
+//  function to update totalCartPrice
 const updateTotalPrice = async (cart) => {
   let total = 0;
 
@@ -16,7 +16,7 @@ const updateTotalPrice = async (cart) => {
   cart.totalCartPrice = total;
 };
 
-
+// add to cart
 export const addToCart = async (req, res) => {
   try {
     const { menuItemId, userId, quantity = 1 } = req.body;
@@ -59,7 +59,6 @@ export const addToCart = async (req, res) => {
     });
   } catch (error) {}
 };
-
 
 
 // Remove item from cart

@@ -5,7 +5,10 @@ import AuthenticatedLayout from "./AuthenticatedLayout";
 // this page's work is check if there is access token aur not, after login, but before landing on Main page
 const Protectedroute = ({ children }) => {
   const accessToken = localStorage.getItem("accessToken");
-  if (!accessToken) {
+    const sessionToken = localStorage.getItem('sessionToken');
+    
+    // Allow access if user has either accessToken (logged in) or sessionToken (guest)
+    if(!accessToken && !sessionToken){
     return <Navigate to="/login" />;
   }
   // if (accessToken) {

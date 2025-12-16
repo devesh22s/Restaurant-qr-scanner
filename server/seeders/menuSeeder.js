@@ -41,7 +41,7 @@ const menuItems = [
   {
     name: 'Hummus with Pita',
     description: 'Creamy hummus served with warm pita bread and fresh vegetables',
-    image: 'https://images.unsplash.com/photo-1571068316344-75bc76f77890?w=800&h=600&fit=crop',
+    image: 'https://images.unsplash.com/photo-1615367423057-4b46b8a1d69a?w=800&h=600&fit=crop',
     price: 219,
     category: 'Appetizers',
     isAvailable: true
