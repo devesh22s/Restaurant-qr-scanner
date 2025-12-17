@@ -1,6 +1,8 @@
 import myModel from "../model/User.js";
 import bcrypt from 'bcrypt'
 import { generatAccessToken, generatRefershToken } from "../utils/jwt.js";
+import transporter from "../services/emailServices.js";
+import registerTemplate from "../services/templates/registerTemplate.js";
 
 
 
@@ -19,7 +21,14 @@ export const register = async(req, res)=>{
 
 
         // integrate mail services
-        
+        await transporter.sendMail({
+    from: 'devesh262004@gmail.com',
+    to: newUser.email,
+    subject: "User registration",
+    text: registerTemplate(newUser.name, "SavouryBites"), 
+  });
+ 
+  console.log("Message sent:", info.messageId);
 
 
 
