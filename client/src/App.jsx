@@ -8,6 +8,7 @@ import OpenRoutes from "./Component/OpenRoutes";
 import Welcome from "./pages/Welcome";
 import { ToastProvider } from "./context/ToastContext";
 import Dashboard from "./Component/Dashboard";
+import Cart from "./pages/Cart";
 
 const App = () => {
   return (
@@ -48,6 +49,14 @@ const App = () => {
              
                 <Dashboard />
               
+            }
+          />
+           <Route
+            path="/cart"
+            element={
+              <Protectedroute>
+                <Cart />
+              </Protectedroute>
             }
           />
         </Routes>

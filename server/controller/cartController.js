@@ -5,7 +5,6 @@ import Menu from "../model/menu.js";
 //  function to update totalCartPrice
 const updateTotalPrice = async (cart) => {
   let total = 0;
-
   for (const item of cart.items) {
     const menu = await Menu.findById(item.menuItemId);
     if (menu) {
@@ -15,6 +14,7 @@ const updateTotalPrice = async (cart) => {
 
   cart.totalCartPrice = total;
 };
+
 
 // add to cart
 export const addToCart = async (req, res) => {
@@ -49,15 +49,63 @@ export const addToCart = async (req, res) => {
     }
     console.log(existingMenuItemInCart);
     
-    cart.totalCartPrice = cart.items.reduce((acc, item) => {
-      return acc + item.quantity * menu.price;
-    }, 0);
+    await updateTotalPrice(cart)
     await cart.save();
 
     res.status(201).json({
       message: 'Items added to cart successfully',
+      data:cart
+     
     });
-  } catch (error) {}
+  } catch (error) {
+    console.log('Error adding to cart:', error);
+   
+  }
+};
+
+// get full cart 
+export const getCart = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const cart = await Cart.findOne({ userId });
+    if (!cart) {
+      return res.json({
+        userId,
+        items: [],
+        totalCartPrice: 0
+      });
+    }
+
+    const items = [];
+
+    for (const cartItem of cart.items) {
+      const menu = await Menu.findById(cartItem.menuItemId);
+
+      if (!menu) continue;
+
+      items.push({
+        menuItemId: menu._id,
+        quantity: cartItem.quantity,
+        name: menu.name,
+        price: menu.price,
+        image: menu.image,
+        description: menu.description,
+        category: menu.category,
+        isAvailable: menu.isAvailable,
+        totalItemPrice: cartItem.quantity * menu.price
+      });
+    }
+
+    res.json({
+      userId,
+      items,
+      totalCartPrice: cart.totalCartPrice
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 
@@ -76,7 +124,7 @@ export const removeItemCart = async (req, res) => {
     await updateTotalPrice(cart);
     await cart.save();
 
-    res.status(200).json({ message: 'Item removed from cart', cart });
+    res.status(200).json({ message: 'Item removed from cart', data:cart });
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
@@ -105,7 +153,7 @@ export const increaseItem = async(req, res)=>{
 
     res.status(200).json({
       message: "Item quantity increased",
-      cart
+      data:cart
     });
     
   } catch (error) {
@@ -139,7 +187,7 @@ export const decreaseItem = async(req, res)=>{
 
     res.status(200).json({
       message: "Item quantity decreased",
-      cart
+      data: cart
     });
     
   } catch (error) {
@@ -170,7 +218,7 @@ export const clearCart = async(req, res)=>{
 
     res.status(200).json({
       message: "Cart Cleared",
-      cart
+      data: cart
     });
     
   } catch (error) {

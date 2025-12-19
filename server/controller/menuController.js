@@ -1,24 +1,26 @@
 import cloudinary from "../config/cloudinary.js";
 import Menu from "../model/menu.js";
 
-export const createMenu = async (req, res, next) => {
-  // console.log(req.file);
+export const createMenu = async (req, res) => {
+  // how can i access the image path here
+  console.log(req.file);
 
   try {
     const filePath = req?.file?.path || null;
-    const result = await cloudinary.uploader.upload(filePath, {folder: "menu"});
-
-    console.log("the result is  => ", result);
-    const menuItem = await Menu.create({...req.body, image: result.secure_url})
+    console.log(filePath);
+    const result = await cloudinary.uploader.upload(filePath, {
+      folder: 'menu',
+    });
+    console.log(result);
+    const menuItem = await Menu.create({
+      ...req.body,
+      image: result.secure_url,
+    });
     res.status(201).json({
-        data: menuItem,
-        message: "New menu item added"
-    })
-  } catch (error) {
-     return res.status(500).json({
-      message: error.message
-     })
-  }
+      data: menuItem,
+      message: 'New menu item addedd',
+    });
+  } catch (error) {}
 };
 
 
@@ -27,21 +29,29 @@ export const createMenu = async (req, res, next) => {
 export const getmenuCategory = async(req, res)=>{
   try {
     const {category} = req.query;
-    console.log(req.query);
+    console.log("Fetching menu items, category:", category);
 
-    const filter = category ? {category, isAvailabel: true} :{isAvailabel: true}
-    const menuItems = await Menu.find(filter)
-    console.log(menuItems);
+    const filter = { isAvailable: true };
+    if (category) {
+      filter.category = category;
+    }
+    
+      const menuItems = await Menu.find(filter).sort({ category: 1, name: 1 });
+
+    
     
     return res.status(200).json({
       success: true,
-      data: menuItems
+      data: menuItems,
+      count: menuItems.length
     })
     
   } catch (error) {
-    console.log(error);
-    
-    
+    console.log("Error fetching menu items:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fetch menu items"
+    });
   }
 
 }

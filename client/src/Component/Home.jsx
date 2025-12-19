@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchMenuItems, setSelectedCategory } from '../redux/menuSlice';
+import { addedTOCart, getCart } from '../redux/cartSlice';
+import { useToast } from '../context/ToastContext';
 import Hero from './Hero';
 
 
@@ -36,7 +38,9 @@ const LoadingSkeleton = () => (
 
 const Home = () => {
   const dispatch = useDispatch();
+  const toast = useToast();
   const { menuItems, categories, loading, error, selectedCategory, searchQuery } = useSelector((state) => state.menu);
+  const { userId } = useSelector((state) => state.auth);
 
   useEffect(() => {
     dispatch(fetchMenuItems(selectedCategory));
@@ -44,6 +48,22 @@ const Home = () => {
 
   const handleCategoryChange = (category) => {
     dispatch(setSelectedCategory(category));
+  };
+
+  const handleAddToCart = async (menuItemId) => {
+    if (!userId) {
+      toast.error('Please login to add items to cart');
+      return;
+    }
+
+    try {
+      await dispatch(addedTOCart({ userId, menuItemId, quantity: 1 })).unwrap();
+      toast.success('Item added to cart successfully!');
+      dispatch(getCart(userId));
+    } catch (error) {
+      const errorMessage = typeof error === 'string' ? error : error?.message || 'Failed to add item to cart';
+      toast.error(errorMessage);
+    }
   };
 
   if (loading) {
@@ -135,7 +155,7 @@ const Home = () => {
                     e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
                   }}
                 />
-                {!item.isAvailable && (
+                {(!item.isAvailable && !item.isAvailabel) && (
                   <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-semibold">
                     Unavailable
                   </div>
@@ -155,8 +175,12 @@ const Home = () => {
                   <span className="text-xs text-gray-500 uppercase tracking-wider">
                     {item.category}
                   </span>
-                  <button className="px-4 py-2 bg-white text-black rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors">
-                    Add to Cart
+                  <button 
+                    onClick={() => handleAddToCart(item._id)}
+                    // disabled={!(item.isAvailable ?? item.isAvailabel ?? true)}
+                    className="px-4 py-2 bg-white text-black rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed"
+                  >
+                    {(item.isAvailable ?? item.isAvailabel ?? true) ? 'Add to Cart' : 'Unavailable'}
                   </button>
                 </div>
               </div>

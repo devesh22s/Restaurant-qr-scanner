@@ -9,7 +9,8 @@ export const login = createAsyncThunk('/base/login', async(data, thunkApi)=>{
         return res.data
     }catch(error){
         console.log(error);
-        return thunkApi.rejectWithValue(error.response.data.message)
+        const errorMessage = error.response?.data?.message || error.message || 'Connection failed. Please check if server is running.'
+        return thunkApi.rejectWithValue(errorMessage)
         
     }
 } )
@@ -24,7 +25,8 @@ export const register = createAsyncThunk('/base/register', async (data, thunkApi
     return res.data;
   } catch (error) {
     console.log(error)
-    return thunkApi.rejectWithValue(error.response.data.message)
+    const errorMessage = error.response?.data?.message || error.message || 'Connection failed. Please check if server is running.'
+    return thunkApi.rejectWithValue(errorMessage)
   }
 });
 
@@ -36,7 +38,8 @@ const authSlice = createSlice({
         error : null,
         name: localStorage.getItem("name") || null,
         role:localStorage.getItem("role") || null,
-        email: null,
+        email: localStorage.getItem("email") || null,
+        userId: localStorage.getItem("userId") || null,
         accessToken : null,
         refershToken: null
 
@@ -46,10 +49,14 @@ const authSlice = createSlice({
       logout: (state, )=>{
         state.name = null
         state.email = null
+        state.userId = null
         state.role = null
         localStorage.removeItem("accessToken")
+        localStorage.removeItem("refershToken")
         localStorage.removeItem("name")
+        localStorage.removeItem("email")
         localStorage.removeItem("role")
+        localStorage.removeItem("userId")
         state.refershToken = null
         state.accessToken = null
       }
@@ -63,12 +70,15 @@ const authSlice = createSlice({
             console.log(action.payload);
             state.name = action.payload.data.name
             state.email = action.payload.data.email
+            state.userId = action.payload.data._id
             state.accessToken = action.payload.accessToken
-            state.refreshToken = action.payload.refreshToken
+            state.refershToken = action.payload.refershToken
             state.role = action.payload.data.role
 
             localStorage.setItem("accessToken", action.payload.accessToken)
-            localStorage.setItem("refreshToken", action.payload.refreshToken)
+            localStorage.setItem("refershToken", action.payload.refershToken)
+            localStorage.setItem("userId", action.payload.data._id)
+            localStorage.setItem("email", action.payload.data.email)
             state.loading = false;
 
             localStorage.setItem("role", action.payload.data.role)

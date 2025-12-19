@@ -4,14 +4,14 @@ const menuSchema = new mongoose.Schema({
   name: {
     type: String,
   }, // ui se aayega
-  descripition:{
+  description:{
     type: String
   }, // ui se aayega
   image: {
     type: String,
   },  // ui se in binary -> parse -> cloudinary par save
-  isAvailabel:{
-    type: String,
+  isAvailable:{
+    type: Boolean,
     default: true
   },  // ui
   price:{
@@ -22,6 +22,6 @@ const menuSchema = new mongoose.Schema({
   }  //ui
 });
 
-const Menu = mongoose.model("menu", menuSchema);
+const Menu = mongoose.model("Menu", menuSchema);
 
 export default Menu;

@@ -8,6 +8,7 @@ import checkRole from './middleware/checkRole.js';
 import sessionrouter from './routes/session.route.js'
 import menurouter from './routes/menu.route.js'
 import cartrouter from './routes/cart.route.js'
+import coupounrouter from './routes/coupoun.route.js'
 import dotenv from 'dotenv'
 dotenv.config()
 const app = express()
@@ -57,6 +58,7 @@ app.use("/api/auth", tablerouter )
 app.use("/api/auth", sessionrouter )
 app.use("/api/auth", menurouter)
 app.use("/api/auth", cartrouter)
+app.use("/api/auth", coupounrouter)
 
 // app.get("/qr", (req, res)=>{
 //   res.download('')   // this route will help to download qr 
