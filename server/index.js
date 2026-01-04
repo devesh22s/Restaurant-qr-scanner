@@ -1,3 +1,14 @@
+// 🔴 FORCE MODEL REGISTRATION (VERY IMPORTANT)
+import './model/user.js';
+import './model/menu.js';
+import './model/cart.js';
+import './model/coupon.js';
+import './model/table.js';
+import './model/session.js';
+
+
+
+
 import express from 'express'
 import dbconnect from './config/database.js';
 import authrouter from './routes/auth.router.js';
@@ -24,7 +35,7 @@ dbconnect()
 
 
 
-// for guest ->
+// for guest -> 
 
 app.get("/menu", verify, checkRole(['customer', 'admin']), (req, res)=>{
   // if(req.headers.authorization){

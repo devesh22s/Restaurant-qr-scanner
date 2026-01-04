@@ -115,7 +115,8 @@ const AuthenticatedLayout = ({ children }) => {
                     Dashboard
                     <span className="absolute -bottom-1 left-0 w-0 h-px bg-yellow-500 transition-all group-hover:w-full"></span>
                   </Link>
-                  <a
+                  <a 
+                  
                     href="#"
                     className="text-gray-400 hover:text-yellow-400 transition-colors text-xs uppercase tracking-widest font-semibold relative group"
                   >
@@ -126,7 +127,7 @@ const AuthenticatedLayout = ({ children }) => {
                     href="#"
                     className="text-gray-400 hover:text-yellow-400 transition-colors text-xs uppercase tracking-widest font-semibold relative group"
                   >
-                    Tables
+                    Tables    
                     <span className="absolute -bottom-1 left-0 w-0 h-px bg-yellow-500 transition-all group-hover:w-full"></span>
                   </a>
                   <a

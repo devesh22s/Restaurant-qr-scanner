@@ -135,11 +135,14 @@ builder
         state.loading = true;
       })
       .addCase(removeItemFromCart.fulfilled, (state, action) => {
-        state.loading = false;
-        state.cart = action.payload;
-        state.items = action.payload.items;
-        state.totalCartPrice = action.payload.totalCartPrice;
-      })
+  state.loading = false;
+
+  const { menuItemId } = action.meta.arg;
+  state.items = state.items.filter(
+    i => i.menuItemId !== menuItemId
+  );
+})
+
       .addCase(removeItemFromCart.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
@@ -152,10 +155,17 @@ builder
       })
       .addCase(increaseItemQuantity.fulfilled, (state, action) => {
         state.loading = false;
-        state.cart = action.payload;
-        state.items = action.payload.items;
-        state.totalCartPrice = action.payload.totalCartPrice;
+
+        const { menuItemId } = action.meta.arg;
+        const item = state.items.find(
+        i => i.menuItemId === menuItemId
+        );
+
+        if (item) {
+          item.quantity += 1;
+        }
       })
+  
       .addCase(increaseItemQuantity.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
@@ -167,11 +177,24 @@ builder
         state.loading = true;
       })
       .addCase(decreaseItemQuantity.fulfilled, (state, action) => {
-        state.loading = false;
-        state.cart = action.payload;
-        state.items = action.payload.items;
-        state.totalCartPrice = action.payload.totalCartPrice;
-      })
+  state.loading = false;
+
+  const { menuItemId } = action.meta.arg;
+  const item = state.items.find(
+    i => i.menuItemId === menuItemId
+  );
+
+  if (!item) return;
+
+  if (item.quantity > 1) {
+    item.quantity -= 1;
+  } else {
+    state.items = state.items.filter(
+      i => i.menuItemId !== menuItemId
+    );
+  }
+})
+
       .addCase(decreaseItemQuantity.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;

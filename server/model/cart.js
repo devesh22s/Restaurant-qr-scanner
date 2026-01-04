@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import Menu from './menu.js'; 
 
 const cartScehma = new mongoose.Schema({
   userId: {
@@ -9,7 +10,7 @@ const cartScehma = new mongoose.Schema({
     {
       menuItemId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Menu', //comes from ui
+        ref: Menu, //comes from ui
       },
       quantity: {
         type: Number,
