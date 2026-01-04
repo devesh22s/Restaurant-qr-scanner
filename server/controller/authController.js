@@ -1,8 +1,8 @@
-import myModel from "../model/User.js";
 import bcrypt from 'bcrypt'
 import { generatAccessToken, generatRefershToken } from "../utils/jwt.js";
 import transporter from "../services/emailServices.js";
 import registerTemplate from "../services/templates/registerTemplate.js";
+import myModel from '../model/user.js';
 
 
 
@@ -98,3 +98,19 @@ export const login = async(req, res) => {
     }
 
 }
+
+
+export const searchAccount = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const user = await myModel.findOne({ email });
+    if (!user) {
+      res.send('No account found');
+    }
+    res.status(200).json({
+      data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

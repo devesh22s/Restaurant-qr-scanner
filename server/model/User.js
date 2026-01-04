@@ -40,6 +40,7 @@ const userSchema = new mongoose.Schema({
 
   totalOrders: {
     type: Number,
+    default : 0
   },
 
   loyalityPoint: {

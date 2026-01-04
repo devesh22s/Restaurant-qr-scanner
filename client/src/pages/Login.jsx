@@ -152,9 +152,9 @@ export default function Login() {
                   <span className="text-gray-400 group-hover:text-gray-300 transition-colors">Remember me</span>
                 </label>
                 
-                <a href="#" className="text-yellow-600 hover:text-yellow-500 transition-colors">
+                <Link to= "/recovery" className="text-yellow-600 hover:text-yellow-500 transition-colors">
                   Forgot password?
-                </a>
+                </Link>
               </div>
 
               {/* Submit Button */}
