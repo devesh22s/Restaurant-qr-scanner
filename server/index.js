@@ -1,10 +1,10 @@
 // 🔴 FORCE MODEL REGISTRATION (VERY IMPORTANT)
-import './model/user.js';
+import './model/User.js';
 import './model/menu.js';
 import './model/cart.js';
 import './model/coupon.js';
 import './model/table.js';
-import './model/session.js';
+import './model/Session.js';
 
 
 
@@ -20,6 +20,7 @@ import sessionrouter from './routes/session.route.js'
 import menurouter from './routes/menu.route.js'
 import cartrouter from './routes/cart.route.js'
 import coupounrouter from './routes/coupoun.route.js'
+import orderrouter from './routes/order.route.js'
 import dotenv from 'dotenv'
 dotenv.config()
 const app = express()
@@ -70,6 +71,7 @@ app.use("/api/auth", sessionrouter )
 app.use("/api/auth", menurouter)
 app.use("/api/auth", cartrouter)
 app.use("/api/auth", coupounrouter)
+app.use("/api/auth", orderrouter)
 
 // app.get("/qr", (req, res)=>{
 //   res.download('')   // this route will help to download qr 
