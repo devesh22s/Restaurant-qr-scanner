@@ -243,6 +243,7 @@ const AuthenticatedLayout = ({ children }) => {
                     </>
                   )}
                 </div>
+                {localStorage.getItem('guestMode')&&<div><Link to = '/register'>Be a member</Link></div>}
               </div>
             </div>
           </div>

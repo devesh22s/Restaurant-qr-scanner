@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, Link } from "react-router-dom";
 import {
@@ -13,10 +13,20 @@ import { login } from "../redux/authSlice";
 
 export default function Login() {
   const dispatch = useDispatch();
-  const { loading, error } = useSelector((state) => state.auth);
+  const { loading, error, role } = useSelector((state) => state.auth);
 
   const [formData, setFormData] = useState({ email: "", password: "" });
   const navigate = useNavigate();
+
+
+  useEffect(()=>{
+    if(role === 'customer'){
+      navigate('/')
+    }else if(role === 'admin'){
+      navigate('/dashboard')
+    }
+  },[role, navigate])
+
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
