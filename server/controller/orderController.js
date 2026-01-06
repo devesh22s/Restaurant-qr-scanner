@@ -1,8 +1,9 @@
-import User from '../models/user.js';
-import Cart from '../models/cart.js';
-import Coupan from '../models/coupan.js';
-import Order from '../models/order.js';
+// import myModel from '../models/User.js';
+import Cart from '../model/cart.js';
+import Coupon from '../model/coupon.js';
+import Order from '../model/order.js';
 import razorpay from '../config/razorpay.js';
+import myModel from '../model/User.js';
 const calculateOrderNumber = () => {
   const date = Date.now();
   const randomNumber = Math.floor(Math.random() * 10000000);
@@ -11,7 +12,7 @@ const calculateOrderNumber = () => {
 
 export const createOrder = async (req, res, next) => {
   const {
-    coupanCode,
+    couponCode,
     tableNumber,
     customerName,
     customerEmail,
@@ -26,11 +27,11 @@ export const createOrder = async (req, res, next) => {
   }
   try {
     let userId;
-    if (req.user) {
-      userId = req.user.id;
+    if (req.myModel) {
+      userId = req.myModel.id;
     }
     console.log(userId);
-    const user = await User.findById(userId);
+    const user = await myModel.findById(userId);
     console.log(user);
     const cartItems = await Cart.findOne({ userId }).populate(
       'items.menuItemId'
@@ -58,8 +59,8 @@ export const createOrder = async (req, res, next) => {
       subTotal += item.subTotal;
     }
     console.log(subTotal);
-    //NOTE calculate discount amount and cross verfiy the coupan
-    const coupan = await Coupan.findOne({ code: coupanCode, isActive: true });
+    //NOTE calculate discount amount and cross verfiy the coupon
+    const coupon = await Coupon.findOne({ code: couponCode, isActive: true });
 
     //result discountAmount ?
     const orderNumber = calculateOrderNumber();
@@ -70,7 +71,7 @@ export const createOrder = async (req, res, next) => {
       sessionToken: null,
       items: orderItems,
       subTotal,
-      coupanCode,
+      couponCode,
       tableNumber,
       customerEmail,
       customerName,
@@ -110,13 +111,13 @@ export const createOrder = async (req, res, next) => {
       });
   }
 
-    user.totalOrders += 1;
-    await user.save();
+    myModel.totalOrders += 1;
+    await myModel.save();
     cartItems.items = [];
     cartItems.totalCartPrice = 0;
     await cartItems.save();
 
-    res.json({ cartItems, orderItems, coupan });
+    res.json({ cartItems, orderItems, coupon });
   } catch (error) {
     next(error);
   }
@@ -150,12 +151,12 @@ export const createOrder = async (req, res, next) => {
 //   },
 // ],
 
-//coupan
+//coupon
 //discountAmout
 
 //gst wagera totalAmount
 //tableNumber
-//coupan count
+//coupon count
 //razorpay
 //customer update
 //clear cart

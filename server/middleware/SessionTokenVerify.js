@@ -1,4 +1,4 @@
-import Session from "../model/Session";
+import Session from "../model/Session.js";
 
 const SessionTokenVerfiy = async (req, res, next) => {
   try {

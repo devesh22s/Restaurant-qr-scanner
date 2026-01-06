@@ -105,7 +105,7 @@ export const getCart = async (req, res) => {
 
   } catch (error) {
     res.status(500).json({ message: error.message });
-  }
+  } 
 };
 
 
@@ -162,7 +162,7 @@ export const increaseItem = async(req, res)=>{
   }
 
 }
-
+ 
 // decrease item
 export const decreaseItem = async(req, res)=>{
   try {
@@ -197,7 +197,7 @@ export const decreaseItem = async(req, res)=>{
 
 }
 
-
+     
 //  clear cart 
 export const clearCart = async(req, res)=>{
   try {
@@ -223,7 +223,7 @@ export const clearCart = async(req, res)=>{
     
   } catch (error) {
         res.status(500).json({ message: error.message });
- 
+    
   }
 
 }
