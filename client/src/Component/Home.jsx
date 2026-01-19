@@ -4,7 +4,7 @@ import { fetchMenuItems, setSelectedCategory } from '../redux/menuSlice';
 import { addedTOCart, getCart } from '../redux/cartSlice';
 import { useToast } from '../context/ToastContext';
 import Hero from './Hero';
-
+import { ShoppingBag, Star, Info } from 'lucide-react';
 
 const LoadingSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -40,7 +40,12 @@ const Home = () => {
   const dispatch = useDispatch();
   const toast = useToast();
   const { menuItems, categories, loading, error, selectedCategory, searchQuery } = useSelector((state) => state.menu);
-  const { userId } = useSelector((state) => state.auth);
+
+
+  // NOTE: Guest user ke paas userId nahi hoga, isliye hum sirf auth check nahi karenge
+  // Backend headers (sessionToken) handle karega.
+
+  // const { userId } = useSelector((state) => state.auth);
 
   useEffect(() => {
     dispatch(fetchMenuItems(selectedCategory));
@@ -51,17 +56,15 @@ const Home = () => {
   };
 
   const handleAddToCart = async (menuItemId) => {
-    if (!userId) {
-      toast.error('Please login to add items to cart');
-      return;
-    }
-
     try {
-      await dispatch(addedTOCart({ userId, menuItemId, quantity: 1 })).unwrap();
+      // FIX: No userId check needed. Headers will handle identity.
+      await dispatch(addedTOCart({ menuItemId, quantity: 1 })).unwrap();
       toast.success('Item added to cart successfully!');
-      dispatch(getCart(userId));
+      
+      // Cart refresh karo
+      dispatch(getCart()); 
     } catch (error) {
-      const errorMessage = typeof error === 'string' ? error : error?.message || 'Failed to add item to cart';
+      const errorMessage = typeof error === 'string' ? error : error?.message || 'Failed to add item';
       toast.error(errorMessage);
     }
   };
@@ -71,7 +74,7 @@ const Home = () => {
       <div className="space-y-8">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Our Menu</h1>
+          <h1 className="text-3xl font-bold mb-2 text-white text-center py-20">Our Menu</h1>
           <p className="text-gray-400">Discover our delicious vegetarian offerings</p>
         </div>
 
@@ -108,84 +111,98 @@ const Home = () => {
       <Hero />
 
       {/* Menu Section */}
-      <div id="menu-section" className="space-y-8 pt-12">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Our Menu</h1>
-          <p className="text-gray-400">Discover our delicious vegetarian offerings</p>
+      <div id="menu-section" className="space-y-8 pt-12 pb-20">
+        <div className="text-center">
+          <h1 className="text-3xl md:text-4xl font-cinzel font-bold text-white mb-2">Our Menu</h1>
+          <p className="text-gray-400 font-manrope">Discover our delicious vegetarian offerings</p>
         </div>
 
      
-      {categories.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {categories.map((category) => (
-            <button
-              key={category}
-              onClick={() => handleCategoryChange(category)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                selectedCategory === category
-                  ? 'bg-white text-black'
-                  : 'bg-gray-800/50 text-gray-300 hover:bg-gray-800/70 border border-gray-700/50'
-              }`}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
-      )}
+     {/* Categories */}
+        {categories.length > 0 && (
+          <div className="flex flex-wrap justify-center gap-3 px-4">
+            {categories.map((category) => (
+              <button
+                key={category}
+                onClick={() => handleCategoryChange(category)}
+                className={`px-6 py-2 rounded-full text-sm font-bold tracking-wide transition-all duration-300 border ${
+                  selectedCategory === category
+                    ? 'bg-yellow-500 text-black border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.4)]'
+                    : 'bg-transparent text-gray-400 border-gray-800 hover:border-yellow-500/50 hover:text-yellow-200'
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+        )}
 
    
-      {menuItems.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-400">No menu items found</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {menuItems.map((item) => (
-            <div
-              key={item._id}
-              className="bg-gray-900/50 border border-gray-800 rounded-lg overflow-hidden hover:border-gray-700 transition-colors"
-            >
-              {/* Image */}
-              <div className="relative h-48 w-full overflow-hidden">
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
-                  }}
-                />
-                {(!item.isAvailable && !item.isAvailabel) && (
-                  <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-semibold">
-                    Unavailable
+    {/* Menu Grid */}
+        {menuItems.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">No items found in this category.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 px-4">
+            {menuItems.map((item) => (
+              <div
+                key={item._id}
+                className="group relative bg-[#0a0a0a] border border-white/5 rounded-xl overflow-hidden hover:border-yellow-500/30 transition-all duration-500 hover:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] hover:-translate-y-1"
+              >
+                {/* Image Section */}
+                <div className="relative h-56 w-full overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10 opacity-60"></div>
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700"
+                    onError={(e) => { e.target.src = 'https://via.placeholder.com/400x300?text=Dish'; }}
+                  />
+                  {(!item.isAvailable) && (
+                    <div className="absolute top-3 right-3 z-20 bg-red-500/90 text-white px-3 py-1 rounded-sm text-xs font-bold uppercase tracking-wider backdrop-blur-md">
+                      Sold Out
+                    </div>
+                  )}
+                  {/* Price Tag */}
+                  <div className="absolute bottom-3 left-3 z-20">
+                     <span className="text-2xl font-cinzel font-bold text-yellow-500 drop-shadow-md">₹{item.price}</span>
                   </div>
-                )}
-              </div>
+                </div>
 
-              {/* Content */}
-              <div className="p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="text-lg font-semibold text-white">{item.name}</h3>
-                  <span className="text-lg font-bold text-white ml-2">
-                    ₹{item.price}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-400 mb-3 line-clamp-2">{item.description}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500 uppercase tracking-wider">
-                    {item.category}
-                  </span>
-                  <button 
-                    onClick={() => handleAddToCart(item._id)}
-                    // disabled={!(item.isAvailable ?? item.isAvailabel ?? true)}
-                    className="px-4 py-2 bg-white text-black rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed"
-                  >
-                    {(item.isAvailable ?? item.isAvailabel ?? true) ? 'Add to Cart' : 'Unavailable'}
-                  </button>
+   {/* Content Section */}
+                <div className="p-5 relative">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="text-lg font-bold text-white font-cinzel group-hover:text-yellow-500 transition-colors">{item.name}</h3>
+                    <div className="flex gap-0.5 text-yellow-500/80">
+                         <Star className="w-3 h-3 fill-current" />
+                         <Star className="w-3 h-3 fill-current" />
+                         <Star className="w-3 h-3 fill-current" />
+                         <Star className="w-3 h-3 fill-current" />
+                    </div>
+                  </div>
+                  
+                  <p className="text-sm text-gray-400 mb-4 line-clamp-2 font-manrope font-light">{item.description}</p>
+                  
+                  <div className="flex items-center justify-between mt-auto pt-4 border-t border-white/5">
+                    <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold border border-gray-800 px-2 py-1 rounded">
+                      {item.category}
+                    </span>
+                    
+                    <button 
+                      onClick={() => handleAddToCart(item._id)}
+                      disabled={!item.isAvailable}
+                      className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                        item.isAvailable 
+                        ? 'bg-yellow-600 text-black hover:bg-yellow-400 hover:shadow-[0_0_20px_rgba(234,179,8,0.4)]' 
+                        : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      <ShoppingBag className="w-4 h-4" />
+                      {item.isAvailable ? 'Add' : 'Unavailable'}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
       )}
       </div>

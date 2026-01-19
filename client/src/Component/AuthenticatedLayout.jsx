@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../redux/authSlice";
 import { setSearchQuery } from "../redux/menuSlice";
 
+
 import {
   UtensilsCrossed,
   User,
@@ -22,6 +23,9 @@ const AuthenticatedLayout = ({ children }) => {
   const navigate = useNavigate();
   const toast = useToast();
   const { name, email, role } = useSelector((state) => state.auth);
+  // Guest State (Session Token check)
+  const isGuest = !localStorage.getItem('accessToken');
+
   const searchQuery = useSelector((state) => state.menu.searchQuery);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -218,6 +222,23 @@ const AuthenticatedLayout = ({ children }) => {
                             {role || "Guest"}
                           </span>
                         </div>
+
+                        <div className="p-2">
+                          {isGuest && (
+                             <Link to="/login" className="flex items-center gap-3 px-3 py-2 text-xs font-medium text-yellow-400 hover:bg-white/5 rounded-lg mb-1">
+                                <User className="w-4 h-4" /> Sign In / Register
+                             </Link>
+                          )}
+                          {!isGuest && (
+                             <Link to="/orders" className="flex items-center gap-3 px-3 py-2 text-xs font-medium text-gray-300 hover:bg-white/5 rounded-lg">
+                                <MenuIcon className="w-4 h-4" /> My Orders
+                             </Link>
+                          )}
+                          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-900/10 rounded-lg">
+                             <LogOut className="w-4 h-4" /> {isGuest ? "Exit Session" : "Logout"}
+                          </button>
+                       </div>
+                       
                         <div className="p-2 space-y-1">
                           <button
                             onClick={() => {
