@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt'
 import { generatAccessToken, generatRefershToken } from "../utils/jwt.js";
 import transporter from "../services/emailServices.js";
 import registerTemplate from "../services/templates/registerTemplate.js";
-import myModel from '../model/user.js';
+// import myModel from '../model/user.js';
 
 
 
@@ -28,7 +28,7 @@ export const register = async(req, res)=>{
     text: registerTemplate(newUser.name, "SavouryBites"), 
   });
  
-  console.log("Message sent:", info.messageId);
+//   console.log("Message sent:", info.messageId);
 
 
 

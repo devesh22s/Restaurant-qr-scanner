@@ -1,165 +1,101 @@
-// import myModel from '../models/User.js';
-import Cart from '../model/cart.js';
-import Coupon from '../model/coupon.js';
-import Order from '../model/order.js';
-import razorpay from '../config/razorpay.js';
-import myModel from '../model/User.js';
-const calculateOrderNumber = () => {
-  const date = Date.now();
-  const randomNumber = Math.floor(Math.random() * 10000000);
-  return `ORDER-${date * randomNumber}`;
-};
+import Order from "../model/order.js";
+import Cart from "../model/cart.js";
+import Coupon from "../model/coupon.js"; // Spelling Fixed
+import Menu from "../model/menu.js";
+import myModel from "../model/User.js";
+import { SuccessResponse, ErrorResponse } from "../utils/responseWrapper.js";
+
+// Helper: Calculate Order Number
+const generateOrderNumber = () => `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
 export const createOrder = async (req, res, next) => {
-  const {
-    couponCode,
-    tableNumber,
-    customerName,
-    customerEmail,
-    customerPhone,
-    notes,
-    paymentMethod,
-  } = req.body;
-  if (!tableNumber) {
-    const error = new Error('No table Found');
-    error.status = 404;
-    throw error;
-  }
   try {
-    let userId;
-    if (req.myModel) {
-      userId = req.myModel.id;
+    const { 
+      couponCode, paymentMethod, tableNumber, 
+      customerName, customerPhone, customerEmail, notes 
+    } = req.body;
+
+    // Middleware se identity mili (User ya Guest)
+    const { type, id } = req.identity;
+
+    // 1. Fetch Cart
+    let query = type === 'user' ? { userId: id } : { sessionToken: id };
+    const cart = await Cart.findOne(query);
+
+    if (!cart || cart.items.length === 0) {
+      return ErrorResponse(res, 400, "Cart is empty");
     }
-    console.log(userId);
-    const user = await myModel.findById(userId);
-    console.log(user);
-    const cartItems = await Cart.findOne({ userId }).populate(
-      'items.menuItemId'
-    );
+
+    // 2. Server-Side Price Calculation
+    let subTotal = 0;
     const orderItems = [];
 
-    for (let item of cartItems.items) {
-      let subTotal = 0;
-      console.log(item);
-      console.log(item.quantity, item.menuItemId.price);
-      const total = item.quantity * item.menuItemId.price;
-      subTotal += total;
-
+    for (const item of cart.items) {
+      const menu = await Menu.findById(item.menuItemId);
+      if (!menu) continue; 
+      
+      const itemTotal = menu.price * item.quantity;
+      subTotal += itemTotal;
+      
       orderItems.push({
-        menuItemId: item.menuItemId._id,
-        name: item.menuItemId.name,
-        price: item.menuItemId.price,
+        menuItemId: menu._id,
+        name: menu.name,
+        price: menu.price,
         quantity: item.quantity,
-        subTotal,
+        subTotal: itemTotal
       });
     }
-    //total Cart subtotal
-    let subTotal = 0;
-    for (let item of orderItems) {
-      subTotal += item.subTotal;
+
+    // 3. Apply Coupon
+    let discountAmount = 0;
+    if (couponCode) {
+      const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
+      if (coupon) {
+         // Add detailed validation (Expiry, Min Order) here if needed
+         if (coupon.discountType === 'percentage') {
+             discountAmount = (subTotal * coupon.discountValue) / 100;
+             if(coupon.maxDiscount) discountAmount = Math.min(discountAmount, coupon.maxDiscount);
+         } else {
+             discountAmount = coupon.discountValue;
+         }
+      }
     }
-    console.log(subTotal);
-    //NOTE calculate discount amount and cross verfiy the coupon
-    const coupon = await Coupon.findOne({ code: couponCode, isActive: true });
 
-    //result discountAmount ?
-    const orderNumber = calculateOrderNumber();
-
-    const dataOfOrder = {
-      orderNumber,
-      userId,
-      sessionToken: null,
+    // 4. Final Bill
+    const taxAmount = Math.round(subTotal * 0.05); // 5% GST
+    const finalAmount = Math.round(subTotal - discountAmount + taxAmount);
+    
+    // 5. Create Order
+    const newOrder = await Order.create({
+      orderNumber: generateOrderNumber(),
+      userId: type === 'user' ? id : null,
+      sessionToken: type === 'session' ? id : null,
       items: orderItems,
-      subTotal,
+      billDetails: { subTotal, discountAmount, taxAmount, finalAmount },
       couponCode,
       tableNumber,
-      customerEmail,
-      customerName,
+      customerName, customerEmail, customerPhone, notes,
       paymentMethod,
-      customerPhone,
-      notes,
-    };
+      orderStatus: 'pending',
+      paymentStatus: paymentMethod === 'cash' ? 'pending' : 'pending' // Update to 'success' if online paid
+    });
 
-    if (paymentMethod === 'cash') {
-      const order = await Order.create(dataOfOrder);
-      return res.status(201).json({
-        message: 'Order Placed Successfully',
-        data: order,
-      });
+    // 6. Clear Cart
+    cart.items = [];
+    cart.totalCartPrice = 0;
+    await cart.save();
+
+    // 7. Update User Stats (If registered)
+    if (type === 'user') {
+       await myModel.findByIdAndUpdate(id, { 
+           $inc: { totalOrders: 1, totalSpend: finalAmount } 
+       });
     }
 
-    if (paymentMethod === 'razorpay') {
-      console.log('this is runnnnnnnnnnnnnnnning');
-      const options = {
-        amount: subTotal * 100,
-        currency: 'INR',
-        receipt: orderNumber,
-        notes: {
-          customerEmail,
-          customerPhone,
-          customerName,
-        },
-      };
-      const razorpayOrder = await razorpay.orders.create(options);
-      console.log(razorpayOrder);
-      dataOfOrder.razorPayOrderId = razorpayOrder.id;
-      const order = await Order.create(dataOfOrder);
+    // Response using your utility
+    return SuccessResponse(res, 201, newOrder, "Order Placed Successfully");
 
-      return res.json({
-        order,
-      razorPayOrder : {...razorpayOrder , key : process.env.RAZORPAY_API_KEY}
-      });
-  }
-
-    myModel.totalOrders += 1;
-    await myModel.save();
-    cartItems.items = [];
-    cartItems.totalCartPrice = 0;
-    await cartItems.save();
-
-    res.json({ cartItems, orderItems, coupon });
   } catch (error) {
     next(error);
   }
 };
-
-//NOTE  client => client data X cross verify
-
-//user identity customer/guest => if customer i need a id / if guest i need session
-
-//NOTE userid => find cart using userId :
-// var => cartItem
-// items: [
-//   {
-//     menuItemId: {
-//       type: mongoose.Schema.Types.ObjectId,
-//       ref: 'Menu',
-//     },
-//     name: {
-//       type: String,
-//     },
-//     price: {
-//       type: Number,
-//     },
-//     quantity: {
-//       type: Number,
-//     },
-//     subTotal: {
-//       type: Number,
-//       required: true,
-//     },
-//   },
-// ],
-
-//coupon
-//discountAmout
-
-//gst wagera totalAmount
-//tableNumber
-//coupon count
-//razorpay
-//customer update
-//clear cart
-
-// myorder => shirt , jeans => shirt => 2 => 500
-// shirt + jeans => subtotal

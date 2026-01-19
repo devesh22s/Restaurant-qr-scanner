@@ -1,52 +1,27 @@
-import crypto from "crypto";
-import QRCode from "qrcode";
+import { SuccessResponse } from "../utils/responseWrapper.js";
 import Table from "../model/table.js";
-import { SuccessResponse } from "../utils/SuccessResponse.js";
-import os from "os";
+import QRCode from "qrcode";
+import crypto from "crypto";
 
 export const createTable = async (req, res) => {
   try {
     const { tableNumber, capacity } = req.body;
-
-    // generate qr slug
     const qrSlug = crypto.randomBytes(6).toString("hex");
-    // console.log(qrSlug);
 
-    // fetching dynamic ip address for development environment
-    const data = os.networkInterfaces()["Wi-Fi"];
-    let ipAddress = null;
-    for (const el of data) {
-      if (el.family === "IPv4") ipAddress = el.address;
-    }
-    console.log(ipAddress);
+    // FIX: Production URL use karo, ya .env se lo
+    const domain = process.env.DOMAIN_URL || "http://localhost:5173"; 
+    const qrCodeUrl = `${domain}/menu?table=${qrSlug}`;
 
-    // generate qr url
-    const qrCodeUrl = `http://${ipAddress}:5173/welcome?qr=${qrSlug}`;
-    console.log(qrCodeUrl);
+    // Generate QR Image Base64
+    const qrImage = await QRCode.toDataURL(qrCodeUrl);
 
-    // embed this qrCodeUrl with qrcode
-    QRCode.toDataURL(qrCodeUrl, async (err, url) => {
-      if (err) {
-        return res.status(500).json({ message: "QR code generation failed" });
-      }
-      const qrImage = url;
-      console.log(url);
-      const mytable = new Table({
-        tableNumber,
-        capacity,
-        qrSlug,
-        qrCodeUrl,
-        qrImage,
-      });
-      await mytable.save();
-
-      res.status(201).json({
-        success: true,
-        data: mytable,
-      });
+    const table = await Table.create({
+      tableNumber, capacity, qrSlug, qrCodeUrl, qrImage
     });
+
+    res.status(201).json({ success: true, data: table });
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 

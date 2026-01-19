@@ -64,13 +64,13 @@ const App = () => {
             }
           />
            <Route
-            path="/cart"
-            element={
-              <Protectedroute>
-                <Cart />
-              </Protectedroute>
-            }
-          />
+  path="/cart"
+  element={
+    // ProtectedRoute hata diya, kyunki Guest bhi Cart dekh sakta hai
+    // Backend secure hai, wo token check kar lega
+     <Cart /> 
+  }
+/>
         </Routes>
       </Router>
     </ToastProvider>

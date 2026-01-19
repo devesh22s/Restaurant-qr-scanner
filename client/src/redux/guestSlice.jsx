@@ -1,36 +1,37 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
+import api from '../lib/api'; // Use custom api
 
-const initialState = {
-  sessionToken: null,
-  loading: false,
-  error: null,
-};
-
-//session creation thunk
-export const session = createAsyncThunk('/session', async (data, thunkApi) => {
+export const createSession = createAsyncThunk('/session/create', async (data, thunkApi) => {
   try {
-    console.log(thunkApi);
-    const res = await axios.post('http://localhost:3000/api/auth/session', data);
+    // data contains { qrslug, deviceId }
+    const res = await api.post('/session/create', data); 
     return res.data;
   } catch (error) {
-    console.log(error);
-    return thunkApi.rejectWithValue(error.response.data.message);
+    return thunkApi.rejectWithValue(error.response?.data?.message);
   }
 });
 
 const guestSlice = createSlice({
   name: 'guest',
-  initialState,
+  initialState: {
+    sessionToken: localStorage.getItem('sessionToken') || null,
+    loading: false,
+    error: null,
+  },
   extraReducers: (builder) => {
     builder
-      .addCase(session.pending, () => {})
-      .addCase(session.fulfilled, (state, action) => {
-        console.log(action.payload);
-        state.sessionToken = action.payload.data.sessionToken;
-        localStorage.setItem('sessionToken', action.payload.data.sessionToken);
+      .addCase(createSession.pending, (state) => { state.loading = true; })
+      .addCase(createSession.fulfilled, (state, action) => {
+        state.loading = false;
+        // Backend: { success: true, data: { sessionToken: "..." } }
+        const token = action.payload.data.sessionToken;
+        state.sessionToken = token;
+        localStorage.setItem('sessionToken', token);
       })
-      .addCase(session.rejected, () => {});
+      .addCase(createSession.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
   },
 });
 

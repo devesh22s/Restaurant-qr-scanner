@@ -1,100 +1,52 @@
 import mongoose from 'mongoose';
 
 const orderSchema = new mongoose.Schema({
-  orderNumber: {
-    type: String,
-    unique: true, //order collection 4 order.countDocumnets() + 5
-  },
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-  }, // client => localStorage => req.body //req.user.id
-  sessionToken: {
-    type: String,
-  }, //client => localStorage => req.body
+  orderNumber: { type: String, unique: true },
+  
+  // Link to User OR Guest Session
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  sessionToken: { type: String, default: null },
+
   items: [
     {
-      menuItemId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Menu',
-      },
-      name: {
-        type: String,
-      },
-      price: {
-        type: Number,
-      },
-      quantity: {
-        type: Number,
-      },
-      subTotal: {
-        type: Number,
-        required: true,
-      },
+      menuItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'Menu' },
+      name: String,
+      price: Number,
+      quantity: Number,
+      subTotal: Number, // Price * Qty
     },
-  ], //client or db using db ;
-  subTotal: {
-    type: Number,
-  }, //db
-  discountAmount: {
-    type: Number,
-  }, //client ya db
-  coupanCode: {
-    type: String,
-  }, //client
-  finalAmount: {
-    type: Number,
-  }, //client
-  tableNumber: {
-    type: Number,
-  }, //client
-  customerEmail: {
-    type: String,
-  }, //client
-  customerName: {
-    type: String,
-  }, //clinet
-  customerPhone: {
-    type: String,
+  ],
+  
+  billDetails: {
+    subTotal: Number,
+    discountAmount: { type: Number, default: 0 },
+    taxAmount: { type: Number, default: 0 }, // GST
+    finalAmount: Number,
   },
-  notes: {
+
+  couponCode: { type: String, default: null },
+  
+  // Customer Info (Guest bharega checkout pe)
+  tableNumber: { type: Number, required: true },
+  customerName: { type: String },
+  customerPhone: { type: String },
+  customerEmail: { type: String },
+  
+  orderStatus: {
     type: String,
-  }, //client
-  paymentMethod: {
-    type: String,
-    enum: ['cash', 'razorpay'],
+    enum: ['pending', 'preparing', 'ready', 'served', 'cancelled'],
+    default: 'pending',
   },
   paymentStatus: {
     type: String,
-    enum: ['pending', 'failed', 'success', 'refund'],
+    enum: ['pending', 'success', 'failed'],
+    default: 'pending'
   },
-  orderStatus: {
-    type: String,
-    enum: ['pending', 'preparing', 'ready', 'served'],
-    default: 'pending',
-  },
-  razorPayOrderId: {
-    type: String,
-  },
-  razorPayPaymentId: {
-    type: String,
-  },
-  razorPaySignature: {
-    type: String,
-  },
-});
+  paymentMethod: { type: String, enum: ['cash', 'razorpay'] },
+  
+  razorPayOrderId: String,
+  razorPayPaymentId: String,
+}, { timestamps: true });
 
 const Order = mongoose.model('Order', orderSchema);
-
 export default Order;
-
-//NOTE paymentid , method => cash , upi
-//NOTE order status => pending , confirmed , preprating read y
-
-//login => userId => menu => menuId => cart => cartId => order
-
-//payment mode => client
-// (paymentStatus) => pedning, failed;
-//orderStatus => pending , confirmed , preparing
-
-//note razopay

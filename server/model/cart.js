@@ -1,28 +1,35 @@
 import mongoose from 'mongoose';
-import Menu from './menu.js'; 
 
-const cartScehma = new mongoose.Schema({
+const cartSchema = new mongoose.Schema({
+  // Hybrid Identification: Ya toh User hoga ya Session (Guest)
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-  }, //comes from ui
+    default: null
+  },
+  sessionToken: {
+    type: String,
+    default: null
+  },
   items: [
     {
       menuItemId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: Menu, //comes from ui
+        ref: 'Menu',
+        required: true
       },
       quantity: {
         type: Number,
-    
-      }, //comes from ui
+        required: true,
+        min: 1
+      },
     },
   ],
   totalCartPrice: {
     type: Number,
-  }, //calculate from backend
-});
+    default: 0
+  }, 
+}, { timestamps: true });
 
-const Cart = mongoose.model('Cart', cartScehma);
-
+const Cart = mongoose.model('Cart', cartSchema);
 export default Cart;

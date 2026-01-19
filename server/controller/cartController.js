@@ -19,17 +19,22 @@ const updateTotalPrice = async (cart) => {
 // add to cart
 export const addToCart = async (req, res) => {
   try {
-    const { menuItemId, userId, quantity = 1 } = req.body;
+    const { menuItemId, quantity = 1 } = req.body;
+    const { type, id } = req.identity; // From middleware
 
-    //step 1
-    let cart = await Cart.findOne({ userId });
-    
-    //if cart not exist create a new cart
+    if (!id) return res.status(400).json({ message: "No User or Session identified" });
+
+    // Find Cart based on User OR Session
+    let query = type === 'user' ? { userId: id } : { sessionToken: id };
+    let cart = await Cart.findOne(query);
+
     if (!cart) {
-      cart = new Cart({ userId, items: [], totalCartPrice: 0 });
+      cart = new Cart({
+        userId: type === 'user' ? id : null,
+        sessionToken: type === 'session' ? id : null,
+        items: []
+      });
     }
-
-    console.log(cart)
 
     let menu = await Menu.findById(menuItemId);
     if (!menu) {
@@ -47,9 +52,9 @@ export const addToCart = async (req, res) => {
     } else {
         existingMenuItemInCart.quantity += 1;
     }
-    console.log(existingMenuItemInCart);
+    // console.log(existingMenuItemInCart);
     
-    await updateTotalPrice(cart)
+    await updateTotalPrice(cart.items)
     await cart.save();
 
     res.status(201).json({
@@ -66,46 +71,31 @@ export const addToCart = async (req, res) => {
 // get full cart 
 export const getCart = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { type, id } = req.identity;
+    if (!id) return res.json({ items: [], totalCartPrice: 0 }); // Empty cart for stranger
 
-    const cart = await Cart.findOne({ userId });
-    if (!cart) {
-      return res.json({
-        userId,
-        items: [],
-        totalCartPrice: 0
-      });
-    }
+    let query = type === 'user' ? { userId: id } : { sessionToken: id };
+    const cart = await Cart.findOne(query).populate('items.menuItemId');
 
-    const items = [];
+    if (!cart) return res.json({ items: [], totalCartPrice: 0 });
 
-    for (const cartItem of cart.items) {
-      const menu = await Menu.findById(cartItem.menuItemId);
+    // Formatting response specifically for frontend
+    const items = cart.items.map(item => {
+        if(!item.menuItemId) return null; // If menu item deleted
+        return {
+            menuItemId: item.menuItemId._id,
+            name: item.menuItemId.name,
+            image: item.menuItemId.image,
+            price: item.menuItemId.price,
+            quantity: item.quantity,
+            total: item.quantity * item.menuItemId.price
+        }
+    }).filter(i => i !== null);
 
-      if (!menu) continue;
-
-      items.push({
-        menuItemId: menu._id,
-        quantity: cartItem.quantity,
-        name: menu.name,
-        price: menu.price,
-        image: menu.image,
-        description: menu.description,
-        category: menu.category,
-        isAvailable: menu.isAvailable,
-        totalItemPrice: cartItem.quantity * menu.price
-      });
-    }
-
-    res.json({
-      userId,
-      items,
-      totalCartPrice: cart.totalCartPrice
-    });
-
+    res.json({ userId: cart.userId, sessionToken: cart.sessionToken, items, totalCartPrice: cart.totalCartPrice });
   } catch (error) {
     res.status(500).json({ message: error.message });
-  } 
+  }
 };
 
 

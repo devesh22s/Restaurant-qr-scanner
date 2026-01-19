@@ -1,86 +1,59 @@
-// 🔴 FORCE MODEL REGISTRATION (VERY IMPORTANT)
+import express from 'express';
+import dotenv from 'dotenv';
+import cors from 'cors';
+import dbconnect from './config/database.js';
+
+// Models (Import all to ensure registration)
 import './model/User.js';
 import './model/menu.js';
 import './model/cart.js';
 import './model/coupon.js';
 import './model/table.js';
 import './model/Session.js';
+import './model/order.js';
 
+// Routes
+import authRouter from './routes/auth.router.js';
+import tableRouter from './routes/table.route.js';
+import sessionRouter from './routes/session.route.js';
+import menuRouter from './routes/menu.route.js';
+import cartRouter from './routes/cart.route.js';
+import couponRouter from './routes/coupoun.route.js'; // Spelling file name mein check karna
+import orderRouter from './routes/order.route.js';
 
+dotenv.config();
+const app = express();
 
-
-import express from 'express'
-import dbconnect from './config/database.js';
-import authrouter from './routes/auth.router.js';
-import tablerouter from './routes/table.route.js';
-import cors from "cors";
-import verify from './middleware/verify.js';
-import checkRole from './middleware/checkRole.js';
-import sessionrouter from './routes/session.route.js'
-import menurouter from './routes/menu.route.js'
-import cartrouter from './routes/cart.route.js'
-import coupounrouter from './routes/coupoun.route.js'
-import orderrouter from './routes/order.route.js'
-import dotenv from 'dotenv'
-dotenv.config()
-const app = express()
-
-
+// Middleware
 app.use(express.json());
 app.use(cors({
-  origin: ["http://localhost:5173", "https://restaurant-qr-scanner-1qo7.vercel.app"],  // never use * 
+  origin: process.env.FRONTEND_URL || ["http://localhost:5173"],
   credentials: true
 }));
-//NOTE  fn is used to connect mongodb
-dbconnect()
 
+// DB Connection
+dbconnect();
 
+// Routes Mapping
+const apiPrefix = "/api/v1"; // Better versioning
+app.use(`${apiPrefix}/auth`, authRouter);
+app.use(`${apiPrefix}/tables`, tableRouter); // Separate logical routes
+app.use(`${apiPrefix}/session`, sessionRouter);
+app.use(`${apiPrefix}/menu`, menuRouter);
+app.use(`${apiPrefix}/cart`, cartRouter);
+app.use(`${apiPrefix}/coupons`, couponRouter);
+app.use(`${apiPrefix}/orders`, orderRouter);
 
-// for guest -> 
-
-app.get("/menu", verify, checkRole(['customer', 'admin']), (req, res)=>{
-  // if(req.headers.authorization){
-  //   return res.send("you can access the menu")
-  // }else{
-  //   return res.send("you are not authorize, please login")
-  // }
-  res.send("menu fetched")
-})
-
- 
-//  global error handler working
-app.use((err, reqe, res, next)=>{
-  if(err){
-
-    // here we need to create log file and call the logger.error method to save the information regarding every error we will get in this project
-    res.status(err.status || 500).json({
-      message: err?.message || "server error"
-      })
-  }
-})
-
-
-app.get("/", (req, res) => {
-    res.send("Home Page Working!");
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Internal Server Error"
+  });
 });
 
-
-app.use("/api/auth", authrouter);
-app.use("/api/auth", tablerouter )
-app.use("/api/auth", sessionrouter )
-app.use("/api/auth", menurouter)
-app.use("/api/auth", cartrouter)
-app.use("/api/auth", coupounrouter)
-app.use("/api/auth", orderrouter)
-
-// app.get("/qr", (req, res)=>{
-//   res.download('')   // this route will help to download qr 
-// })
-
-
-
-app.listen(3000, ()=>{
-    console.log("port running on 3000");
-  
-})
-
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});

@@ -1,7 +1,7 @@
 import Session from "../model/Session.js";
 import Table from "../model/table.js";
 import crypto from "crypto";
-import { SuccessResponse } from "../utils/SuccessResponse.js";
+import { SuccessResponse } from "../utils/responseWrapper.js";
 
 export const sessonController = async (req, res, next) => {
   try {
@@ -23,7 +23,7 @@ export const sessonController = async (req, res, next) => {
     // console.log(tableNumber);
 
     const expiresAt = new Date();
-    expiresAt.setHours(24);
+    expiresAt.setDate(expiresAt.getDate() + 1);
 
 // Create session - tableNumber is optional (for guest without QR scan)
     const session = new Session({
