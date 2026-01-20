@@ -13,6 +13,8 @@ import {
   ChevronDown,
   ShoppingCart,
   Search,
+  MenuIcon,
+  ClipboardList,
 } from "lucide-react";
 import Footer from "./Footer";
 import { Link, Outlet, useNavigate } from "react-router-dom";
@@ -230,10 +232,10 @@ const AuthenticatedLayout = ({ children }) => {
                              </Link>
                           )}
                           {!isGuest && (
-                             <Link to="/orders" className="flex items-center gap-3 px-3 py-2 text-xs font-medium text-gray-300 hover:bg-white/5 rounded-lg">
-                                <MenuIcon className="w-4 h-4" /> My Orders
-                             </Link>
-                          )}
+  <Link to="/orders" className="flex items-center gap-3 px-3 py-2 text-xs font-medium text-gray-300 hover:bg-white/5 rounded-lg">
+    <ClipboardList className="w-4 h-4" /> My Orders
+  </Link>
+)}
                           <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-900/10 rounded-lg">
                              <LogOut className="w-4 h-4" /> {isGuest ? "Exit Session" : "Logout"}
                           </button>

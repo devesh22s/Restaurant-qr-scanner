@@ -1,11 +1,22 @@
-import express from 'express'
-import { createMenu, deleteMenu, getmenuCategory, updateMenu  } from '../controller/menuController.js';
-
+import express from 'express';
+import { createMenu, deleteMenu, getmenuCategory, updateMenu } from '../controller/menuController.js';
 import upload from '../middleware/upload.js';
+
 const router = express.Router();
 
-router.post("/menu", upload.single('myimage'), createMenu)
-router.get("/menu", getmenuCategory)
-router.put("/menu/:id", upload.single('myimage'), updateMenu)
-router.delete("/menu/:id", deleteMenu)
-export default router
+// NOTE: index.js mein already '/api/v1/menu' set hai.
+// Isliye yahan hum sirf '/' use karenge.
+
+// Create Menu -> POST /api/v1/menu/
+router.post("/", upload.single('myimage'), createMenu);
+
+// Get All Menu -> GET /api/v1/menu/
+router.get("/", getmenuCategory);
+
+// Update Menu -> PUT /api/v1/menu/:id
+router.put("/:id", upload.single('myimage'), updateMenu);
+
+// Delete Menu -> DELETE /api/v1/menu/:id
+router.delete("/:id", deleteMenu);
+
+export default router;

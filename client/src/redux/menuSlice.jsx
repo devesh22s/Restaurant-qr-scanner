@@ -1,15 +1,18 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import axios from "axios";
+// FIX 1: Import custom api instance
+import api from "../lib/api"; 
 
 // Fetch all menu items
 export const fetchMenuItems = createAsyncThunk("menu/fetchMenuItems", async (category, thunkApi) => {
     try {
+      // FIX 2: Use api.get (URL short ho gaya)
+      // Base URL is already set to 'http://localhost:3000/api/v1' in api.js
       const url =
         category && category !== "All"
-          ? `http://localhost:3000/api/auth/menu?category=${category}`
-          : "http://localhost:3000/api/auth/menu";
+          ? `/menu?category=${category}` 
+          : "/menu"; // Yeh '/menu' ban jayega 'http://localhost:3000/api/v1/menu'
 
-      const res = await axios.get(url);
+      const res = await api.get(url);
       return res.data;
     } catch (error) {
       console.log(error);
@@ -24,7 +27,7 @@ const menuSlice = createSlice({
   name: "menu",
   initialState: {
     menuItems: [],
-    allMenuItems: [], // Store all items for filtering
+    allMenuItems: [],
     categories: [],
     loading: false,
     error: null,
@@ -52,17 +55,19 @@ const menuSlice = createSlice({
       })
       .addCase(fetchMenuItems.fulfilled, (state, action) => {
         state.loading = false;
-        state.allMenuItems = action.payload.data;
+        // Backend Response structure: { success: true, data: [...] }
+        const data = action.payload.data || []; // Safety check
+        state.allMenuItems = data;
 
-        // Apply search filter if search query exists
-        let filteredItems = action.payload.data;
+        // Apply search filter
+        let filteredItems = data;
         if (state.searchQuery) {
           const query = state.searchQuery.toLowerCase();
-          filteredItems = action.payload.data.filter(
+          filteredItems = data.filter(
             (item) =>
               item.name.toLowerCase().includes(query) ||
-              item.description.toLowerCase().includes(query) ||
-              item.category.toLowerCase().includes(query)
+              item.description?.toLowerCase().includes(query) ||
+              item.category?.toLowerCase().includes(query)
           );
         }
 
@@ -71,7 +76,7 @@ const menuSlice = createSlice({
         if (state.selectedCategory === "All") {
           const uniqueCategories = [
             "All",
-            ...new Set(action.payload.data.map((item) => item.category)),
+            ...new Set(data.map((item) => item.category)),
           ];
           state.categories = uniqueCategories;
         }
@@ -84,5 +89,4 @@ const menuSlice = createSlice({
 });
 
 export default menuSlice.reducer;
-export const { setSelectedCategory, setSearchQuery, clearMenuItems } =
-  menuSlice.actions;
+export const { setSelectedCategory, setSearchQuery, clearMenuItems } = menuSlice.actions;
