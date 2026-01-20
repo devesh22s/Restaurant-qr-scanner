@@ -1,13 +1,18 @@
+import crypto from 'crypto';
 import Order from "../model/order.js";
 import Cart from "../model/cart.js";
-import Coupon from "../model/coupon.js"; // Spelling Fixed
+import Coupon from "../model/coupon.js"; 
 import Menu from "../model/menu.js";
 import myModel from "../model/User.js";
+import razorpay from "../config/razorpay.js"; 
 import { SuccessResponse, ErrorResponse } from "../utils/responseWrapper.js";
 
 // Helper: Calculate Order Number
 const generateOrderNumber = () => `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
+// ==========================================
+// 1. CREATE ORDER API (Logic for Cash & Razorpay)
+// ==========================================
 export const createOrder = async (req, res, next) => {
   try {
     const { 
@@ -18,7 +23,7 @@ export const createOrder = async (req, res, next) => {
     // Middleware se identity mili (User ya Guest)
     const { type, id } = req.identity;
 
-    // 1. Fetch Cart
+    // --- STEP 1: Fetch Cart ---
     let query = type === 'user' ? { userId: id } : { sessionToken: id };
     const cart = await Cart.findOne(query);
 
@@ -26,7 +31,7 @@ export const createOrder = async (req, res, next) => {
       return ErrorResponse(res, 400, "Cart is empty");
     }
 
-    // 2. Server-Side Price Calculation
+    // --- STEP 2: Server-Side Price Calculation (Secure) ---
     let subTotal = 0;
     const orderItems = [];
 
@@ -46,56 +51,156 @@ export const createOrder = async (req, res, next) => {
       });
     }
 
-    // 3. Apply Coupon
+    // --- STEP 3: Apply Coupon ---
     let discountAmount = 0;
     if (couponCode) {
       const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
       if (coupon) {
-         // Add detailed validation (Expiry, Min Order) here if needed
-         if (coupon.discountType === 'percentage') {
-             discountAmount = (subTotal * coupon.discountValue) / 100;
-             if(coupon.maxDiscount) discountAmount = Math.min(discountAmount, coupon.maxDiscount);
-         } else {
-             discountAmount = coupon.discountValue;
+         // Check constraints (Date & Min Order)
+         const isValidDate = new Date() >= coupon.validFrom && new Date() <= coupon.validTo;
+         const isMinOrderMet = subTotal >= coupon.minOrderAmount;
+
+         if(isValidDate && isMinOrderMet) {
+             if (coupon.discountType === 'percentage') {
+                 discountAmount = (subTotal * coupon.discountValue) / 100;
+                 if(coupon.maxDiscount) discountAmount = Math.min(discountAmount, coupon.maxDiscount);
+             } else {
+                 discountAmount = coupon.discountValue;
+             }
          }
       }
     }
 
-    // 4. Final Bill
+    // --- STEP 4: Final Bill Calculation ---
     const taxAmount = Math.round(subTotal * 0.05); // 5% GST
     const finalAmount = Math.round(subTotal - discountAmount + taxAmount);
+    const orderNumber = generateOrderNumber();
     
-    // 5. Create Order
-    const newOrder = await Order.create({
-      orderNumber: generateOrderNumber(),
+    // --- STEP 5: Prepare Order Data ---
+    const orderData = {
+      orderNumber,
       userId: type === 'user' ? id : null,
       sessionToken: type === 'session' ? id : null,
       items: orderItems,
       billDetails: { subTotal, discountAmount, taxAmount, finalAmount },
-      couponCode,
+      couponCode: couponCode || null,
       tableNumber,
       customerName, customerEmail, customerPhone, notes,
       paymentMethod,
       orderStatus: 'pending',
-      paymentStatus: paymentMethod === 'cash' ? 'pending' : 'pending' // Update to 'success' if online paid
-    });
+      paymentStatus: 'pending' 
+    };
 
-    // 6. Clear Cart
-    cart.items = [];
-    cart.totalCartPrice = 0;
-    await cart.save();
+    // --- STEP 6: Handle Payment Gateways ---
+    
+    // === CASE A: CASH Order ===
+    if (paymentMethod === 'cash') {
+        const newOrder = await Order.create(orderData);
+        
+        // Notify Kitchen (Socket.io)
+        try {
+            const io = req.app.get('io');
+            if(io) io.emit('order', { type: 'NEW_ORDER', data: newOrder });
+        } catch (err) { console.log("Socket emit failed", err); }
 
-    // 7. Update User Stats (If registered)
-    if (type === 'user') {
-       await myModel.findByIdAndUpdate(id, { 
-           $inc: { totalOrders: 1, totalSpend: finalAmount } 
-       });
+        // Clear Cart & Update Stats
+        await clearCartAndUpdateStats(cart, type, id, finalAmount);
+
+        return SuccessResponse(res, 201, newOrder, "Order Placed Successfully");
     }
 
-    // Response using your utility
-    return SuccessResponse(res, 201, newOrder, "Order Placed Successfully");
+    // === CASE B: RAZORPAY Order ===
+    else if (paymentMethod === 'razorpay') {
+        const options = {
+            amount: finalAmount * 100, // Razorpay takes amount in paise
+            currency: "INR",
+            receipt: orderNumber,
+            notes: { customerEmail, customerPhone }
+        };
+
+        // Create order on Razorpay Server
+        const razorpayOrder = await razorpay.orders.create(options);
+        
+        // Save to our DB with RP Order ID
+        orderData.razorPayOrderId = razorpayOrder.id;
+        const newOrder = await Order.create(orderData);
+
+        // Clear Cart (Assuming user will pay, we clear logic here or after success)
+        await clearCartAndUpdateStats(cart, type, id, finalAmount);
+
+        return SuccessResponse(res, 201, {
+            order: newOrder,
+            razorPayDetails: {
+                id: razorpayOrder.id,
+                amount: razorpayOrder.amount,
+                currency: razorpayOrder.currency,
+                key: process.env.RAZORPAY_API_KEY // Send Key to frontend
+            }
+        }, "Proceed to Payment");
+    }
 
   } catch (error) {
     next(error);
   }
+};
+
+// ==========================================
+// 2. VERIFY PAYMENT API (Called after Razorpay Popup)
+// ==========================================
+export const verifyPayment = async (req, res, next) => {
+  try {
+    const { razorPayOrderId, razorPayPaymentId, razorPaySignature } = req.body;
+
+    const order = await Order.findOne({ razorPayOrderId });
+    if (!order) {
+        return ErrorResponse(res, 404, "Order not found");
+    }
+
+    // Razorpay Signature Verification Formula
+    const generated_signature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_API_SECRET)
+      .update(razorPayOrderId + '|' + razorPayPaymentId)
+      .digest('hex');
+
+    if (generated_signature !== razorPaySignature) {
+        order.paymentStatus = 'failed';
+        await order.save();
+        return ErrorResponse(res, 400, "Payment verification failed");
+    }
+
+    // Payment Successful
+    order.paymentStatus = 'success';
+    order.razorPayPaymentId = razorPayPaymentId;
+    order.razorPaySignature = razorPaySignature;
+    await order.save();
+
+    // Notify Kitchen that Payment is Done
+    try {
+        const io = req.app.get('io');
+        if(io) io.emit('order', { type: 'PAYMENT_SUCCESS', orderId: order._id });
+    } catch (err) { console.log("Socket error", err); }
+
+    return SuccessResponse(res, 200, order, "Payment Verified Successfully");
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+// ==========================================
+// HELPER FUNCTIONS
+// ==========================================
+const clearCartAndUpdateStats = async (cart, type, userId, amount) => {
+    // 1. Clear Cart
+    cart.items = [];
+    cart.totalCartPrice = 0;
+    await cart.save();
+
+    // 2. Update User Stats (if registered user)
+    if (type === 'user') {
+        await myModel.findByIdAndUpdate(userId, { 
+            $inc: { totalOrders: 1, totalSpend: amount } 
+        });
+    }
 };
