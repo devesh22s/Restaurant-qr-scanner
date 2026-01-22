@@ -44,10 +44,14 @@ const Cart = () => {
     toast.info("Item removed");
   };
 
-  const handleCheckout = () => {
-    // Navigate to checkout or open modal
-    // navigate("/checkout"); 
-    toast.success("Proceeding to payment gateway...");
+ const handleCheckout = () => {
+    // Check if cart is empty before navigating
+    if (items.length === 0) {
+        return toast.error("Your cart is empty!");
+    }
+    
+    // Navigate to the new Checkout page we created
+    navigate("/checkout"); 
   };
 
   // ===== EMPTY CART UI =====

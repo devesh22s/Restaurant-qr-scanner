@@ -188,6 +188,31 @@ export const verifyPayment = async (req, res, next) => {
 };
 
 
+// ===============================================
+//3.  GET MY ORDERS
+// ===================================================
+export const getMyOrders = async (req, res, next) => {
+  try {
+    const { type, id } = req.identity; // Middleware se identity
+
+    // Query based on User ID or Guest Session
+    let query = type === 'user' ? { userId: id } : { sessionToken: id };
+
+    // Find orders, sort by latest first
+    const orders = await Order.find(query)
+      .sort({ createdAt: -1 }) // Newest top
+      .populate('items.menuItemId'); // Item details fetch karo
+
+    return res.status(200).json({
+      success: true,
+      orders
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ==========================================
 // HELPER FUNCTIONS
 // ==========================================

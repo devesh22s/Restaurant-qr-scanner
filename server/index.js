@@ -1,9 +1,12 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import http from 'http'; // ✅ New
+import { Server } from 'socket.io'; // ✅ New
+import helmet from 'helmet'; // ✅ Security
 import dbconnect from './config/database.js';
 
-// Models (Import all to ensure registration)
+// Models
 import './model/User.js';
 import './model/menu.js';
 import './model/cart.js';
@@ -18,30 +21,48 @@ import tableRouter from './routes/table.route.js';
 import sessionRouter from './routes/session.route.js';
 import menuRouter from './routes/menu.route.js';
 import cartRouter from './routes/cart.route.js';
-import couponRouter from './routes/coupoun.route.js'; // Spelling file name mein check karna
+import couponRouter from './routes/coupoun.route.js'; 
 import orderRouter from './routes/order.route.js';
 
 dotenv.config();
 const app = express();
+const server = http.createServer(app); // ✅ Server wrapping
 
 // Middleware
+app.use(helmet()); // ✅ Security Headers
 app.use(express.json());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || ["http://localhost:5173"],
+  origin: process.env.FRONTEND_URL || "http://localhost:5173",
   credentials: true
 }));
 
 // DB Connection
 dbconnect();
 
+// ✅ Socket.io Setup (For Kitchen Updates)
+const io = new Server(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    methods: ["GET", "POST"]
+  }
+});
+
+io.on("connection", (socket) => {
+  console.log("Client connected:", socket.id);
+  socket.on("disconnect", () => console.log("Client disconnected"));
+});
+
+// Make 'io' accessible in Controllers
+app.set('io', io);
+
 // Routes Mapping
-const apiPrefix = "/api/v1"; // Better versioning
+const apiPrefix = "/api/v1"; 
 app.use(`${apiPrefix}/auth`, authRouter);
-app.use(`${apiPrefix}/tables`, tableRouter); // Separate logical routes
+app.use(`${apiPrefix}/tables`, tableRouter);
 app.use(`${apiPrefix}/session`, sessionRouter);
 app.use(`${apiPrefix}/menu`, menuRouter);
 app.use(`${apiPrefix}/cart`, cartRouter);
-app.use(`${apiPrefix}/coupons`, couponRouter);
+app.use(`${apiPrefix}/coupouns`, couponRouter);
 app.use(`${apiPrefix}/orders`, orderRouter);
 
 // Global Error Handler
@@ -54,6 +75,8 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+
+// ✅ Change app.listen to server.listen
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT} 🚀`);
 });
