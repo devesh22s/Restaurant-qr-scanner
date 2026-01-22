@@ -1,14 +1,19 @@
-import { SuccessResponse } from "../utils/responseWrapper.js";
 import Table from "../model/table.js";
 import QRCode from "qrcode";
 import crypto from "crypto";
 
+// 1. CREATE TABLE
 export const createTable = async (req, res) => {
   try {
     const { tableNumber, capacity } = req.body;
-    const qrSlug = crypto.randomBytes(6).toString("hex");
+    
+    // Check if table exists
+    const existingTable = await Table.findOne({ tableNumber });
+    if (existingTable) {
+        return res.status(400).json({ success: false, message: "Table number already exists" });
+    }
 
-    // FIX: Production URL use karo, ya .env se lo
+    const qrSlug = crypto.randomBytes(6).toString("hex");
     const domain = process.env.DOMAIN_URL || "http://localhost:5173"; 
     const qrCodeUrl = `${domain}/menu?table=${qrSlug}`;
 
@@ -16,48 +21,57 @@ export const createTable = async (req, res) => {
     const qrImage = await QRCode.toDataURL(qrCodeUrl);
 
     const table = await Table.create({
-      tableNumber, capacity, qrSlug, qrCodeUrl, qrImage
+      tableNumber, capacity, qrSlug, qrCodeUrl, qrImage, isActive: true
     });
 
-    res.status(201).json({ success: true, data: table });
+    res.status(201).json({ success: true, data: table, message: "Table Created" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// get table by slug
+// 2. GET ALL TABLES (Admin Dashboard)
+export const getAllTable = async (req, res) => {
+  try {
+    const tables = await Table.find().sort({ tableNumber: 1 }); // Sort by Table Number
+    
+    // ✅ FIX: Agar empty hai to bhi success return karo (Error mat pheko)
+    res.status(200).json({ 
+        success: true, 
+        data: tables, // Empty array [] agar koi table nahi hai
+        count: tables.length 
+    });
 
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+// 3. GET SINGLE TABLE (By Slug for Guest)
 export const getTableBySlug = async (req, res) => {
   try {
-    // paramas , query params , req.body
     const { slug } = req.params;
-    console.log(slug);
-
     const table = await Table.findOne({ qrSlug: slug, isActive: true });
-    console.log(table);
 
-    res.status(200).json({
-      success: true,
-      data: table,
-    });
+    if (!table) {
+        return res.status(404).json({ success: false, message: "Invalid or Inactive Table" });
+    }
+
+    res.status(200).json({ success: true, data: table });
   } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// get all table
-export const getAllTable = async (req, res, next) => {
-  try {
-    const tables = await Table.find();
-    if (tables.length <= 0) {
-      const error = new Error("No table found");
-      error.status = 404;
-      throw error;
+// 4. DELETE TABLE (New Feature)
+export const deleteTable = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await Table.findByIdAndDelete(id);
+        res.status(200).json({ success: true, message: "Table Deleted Successfully" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
-    SuccessResponse(res, 200, tables);
-  } catch (error) {
-    next(error);
-  }
 };

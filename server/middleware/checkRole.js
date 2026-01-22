@@ -1,16 +1,14 @@
-
-const checkRole = (role) => {
-  return (req, res, next)=>{
-    if(role.includes(req.user.role)){
-        next()
-    }else{
-        res.status(403).json({
-            message: `This resource is not availabel for ${req.user.role}`
-        })
+const checkRole = (allowedRoles) => {
+    return (req, res, next) => {
+        // Safe check: Agar user hi nahi hai, to role check mat karo
+        if (!req.user || !allowedRoles.includes(req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: `Access denied. Authorized roles: ${allowedRoles.join(", ")}`
+            });
+        }
+        next();
     }
-    console.log("this is the console of checkrole middleware", req.user);
-    
-  }
 }
-
-export default checkRole
+  
+export default checkRole;

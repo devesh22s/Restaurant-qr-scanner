@@ -13,31 +13,65 @@ import { login } from "../redux/authSlice";
 
 export default function Login() {
   const dispatch = useDispatch();
-  const { loading, error, role } = useSelector((state) => state.auth);
+  const { loading, error } = useSelector((state) => state.auth);
 
   const [formData, setFormData] = useState({ email: "", password: "" });
   const navigate = useNavigate();
 
+  // ✅ 1. Auto-Redirect (Based on LocalStorage for instant check)
+  useEffect(() => {
+    const storedRole = localStorage.getItem("role");
+    const token = localStorage.getItem("accessToken");
 
-  useEffect(()=>{
-    if(role === 'customer'){
-      navigate('/')
-    }else if(role === 'admin'){
-      navigate('/dashboard')
+    if (token && storedRole) {
+      if (storedRole === 'admin') {
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
     }
-  },[role, navigate])
-
+  }, [navigate]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // ✅ 2. Handle Login Submission
   const handleSubmit = (e) => {
     e.preventDefault();
-    dispatch(login(formData)).unwrap().then(() => {
-      navigate("/");
-      localStorage.removeItem("sessionToken"); // Clear guest token on login
-    });
+    dispatch(login(formData))
+      .unwrap()
+      .then((payload) => {
+        // NOTE: payload structure is likely { success: true, data: {name, email...}, accessToken: "..." }
+        
+        console.log("Login Payload:", payload); // Debugging ke liye
+
+        // --- FIX STARTS HERE ---
+        // Humein manually bhi save karna chahiye taaki navigation ke turant baad data mile
+        
+        // 1. Save Token
+        localStorage.setItem("accessToken", payload.accessToken);
+        
+        // 2. Save Role
+        localStorage.setItem("role", payload.data.role);
+        
+        // 3. ✅ Save Full User Object (Ye line missing thi)
+        localStorage.setItem("user", JSON.stringify(payload.data)); 
+        
+        // 4. Clear Guest Session
+        localStorage.removeItem("sessionToken"); 
+
+        // 5. Redirect based on role inside payload (Redux state update ka wait mat karo)
+        if (payload.data.role === 'admin') {
+           navigate('/admin/dashboard', { replace: true });
+        } else {
+           navigate('/', { replace: true });
+        }
+        // --- FIX ENDS HERE ---
+      })
+      .catch((err) => {
+        console.error("Login Failed:", err);
+      });
   };
 
   return (

@@ -1,10 +1,19 @@
-import express from 'express' ;
-import { getAllCoupouns, registerCoupan } from '../controller/coupounController.js';
+import express from 'express';
+import { 
+    createCoupon, 
+    getAdminCoupons, 
+    deleteCoupon,
+    verifyCoupon // ✅ Import this
+} from '../controller/coupounController.js';
 
-const router = express.Router() ;
+const router = express.Router();
 
+// --- ADMIN ROUTES ---
+router.post('/create', createCoupon);
+router.get('/all', getAdminCoupons);
+router.delete('/:id', deleteCoupon);
 
-router.get('/coupouns', getAllCoupouns)
-router.get('/coupouns', registerCoupan)
+// --- CUSTOMER ROUTE (Checkout Page Call karega) ---
+router.post('/verify', verifyCoupon); 
 
-export default router
+export default router;

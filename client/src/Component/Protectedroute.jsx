@@ -1,28 +1,32 @@
-import React from "react";
-import { Navigate, Outlet } from "react-router-dom";
-import AuthenticatedLayout from "./AuthenticatedLayout";
+import React from 'react';
+import { Navigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 
-// this page's work is check if there is access token aur not, after login, but before landing on Main page
-const Protectedroute = ({ children }) => {
-  const accessToken = localStorage.getItem("accessToken");
-    const sessionToken = localStorage.getItem('sessionToken');
-    
-    // Allow access if user has either accessToken (logged in) or sessionToken (guest)
-    if(!accessToken && !sessionToken){
-    return <Navigate to="/login" />;
+const Protectedroute = ({ children, adminOnly = false }) => {
+  // 1. Redux aur LocalStorage se data lo
+  const { role } = useSelector((state) => state.auth);
+  const token = localStorage.getItem('accessToken');
+  const storedRole = localStorage.getItem('role');
+
+  // Priority: Redux role > LocalStorage role
+  const currentRole = role || storedRole;
+
+  // 2. Token Check: Agar login nahi hai, to Login page par bhejo
+  if (!token) {
+    // Guest logic (agar session token allow karna hai to yahan check kar sakte ho)
+    // Lekin Admin route ke liye strict login chahiye
+    return <Navigate to="/login" replace />;
   }
-  // if (accessToken) {
-  //   return <Navigate to="/" />;   // if we do it here then  it willl only navigate , it can't access children
-  // }
-  return (
-    <div>
-      {/* <Outlet /> here outlet is homepage for protected page */}
-      <AuthenticatedLayout>
-      {children}
-      </AuthenticatedLayout>
-      {/* it is the property through which we can access the inner child of protected routes */}
-    </div>
-  );
+
+  // 3. Admin Security Check: 
+  // Agar route "Admin Only" hai, lekin user "Admin" nahi hai -> Home par bhejo
+  if (adminOnly && currentRole !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+
+  // 4. Sab sahi hai -> Jo page manga hai wo dikhao (Bina kisi Layout wrapper ke)
+  // Layout wrapper ab App.js mein laga hua hai
+  return children;
 };
 
 export default Protectedroute;

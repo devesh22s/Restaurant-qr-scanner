@@ -10,7 +10,9 @@ import {
   FileText, 
   CheckCircle,
   Loader2,
-  UtensilsCrossed
+  UtensilsCrossed,
+  Tag,
+  X
 } from 'lucide-react';
 
 // Helper: Load Razorpay Script dynamically
@@ -36,22 +38,29 @@ const Checkout = () => {
 
   // Redux State
   const { items, totalCartPrice } = useSelector((state) => state.cart);
-  const { name, email, contact,  } = useSelector((state) => state.auth);
+  const { name, email, contact } = useSelector((state) => state.auth);
 
   const [loading, setLoading] = useState(false);
+  const [couponLoading, setCouponLoading] = useState(false); // For Apply Button
+  
+  // Coupon States
+  const [discount, setDiscount] = useState(0);
+  const [appliedCoupon, setAppliedCoupon] = useState(null); // Stores the code if valid
+
   const [formData, setFormData] = useState({
     customerName: name || '',
     customerEmail: email || '',
-    customerPhone: contact || '', // Default from Auth
+    customerPhone: contact || '', 
     tableNumber: '',
     notes: '',
     couponCode: '',
-    paymentMethod: 'cash' // Default selection
+    paymentMethod: 'cash' 
   });
 
   // Calculate Finals
   const gstAmount = Math.round(totalCartPrice * 0.05);
-  const grandTotal = totalCartPrice + gstAmount;
+  // Grand Total = Items + GST - Discount
+  const grandTotal = Math.max(0, totalCartPrice + gstAmount - discount);
 
   // Load cart if missing
   useEffect(() => {
@@ -65,7 +74,39 @@ const Checkout = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // --- 1. HANDLE ORDER SUBMISSION ---
+  // --- 1. HANDLE COUPON APPLY ---
+  const handleApplyCoupon = async () => {
+    if (!formData.couponCode) return toast.error("Please enter a coupon code");
+
+    setCouponLoading(true);
+    try {
+        const res = await api.post('/coupons/verify', {
+            code: formData.couponCode,
+            cartTotal: totalCartPrice // Send Item Total to check min order amount
+        });
+
+        if (res.data.success) {
+            setDiscount(res.data.discountAmount);
+            setAppliedCoupon(res.data.code);
+            toast.success(`Coupon Applied! You saved ₹${res.data.discountAmount}`);
+        }
+    } catch (error) {
+        setDiscount(0);
+        setAppliedCoupon(null);
+        toast.error(error.response?.data?.message || "Invalid Coupon Code");
+    } finally {
+        setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+      setDiscount(0);
+      setAppliedCoupon(null);
+      setFormData({...formData, couponCode: ''});
+      toast.info("Coupon Removed");
+  };
+
+  // --- 2. HANDLE ORDER SUBMISSION ---
   const handlePlaceOrder = async () => {
     if (!formData.tableNumber) {
         return toast.error("Please enter Table Number");
@@ -80,10 +121,8 @@ const Checkout = () => {
         const orderPayload = {
             ...formData,
             tableNumber: Number(formData.tableNumber),
-            // Backend handles price calculation securely
+            couponCode: appliedCoupon || null // Ensure we send valid code
         };
-
-        console.log("Sending Order Payload:", orderPayload);
 
         // API Call: Create Order
         const response = await api.post('/orders/orders', orderPayload);
@@ -109,7 +148,7 @@ const Checkout = () => {
     }
   };
 
-  // --- 2. HANDLE RAZORPAY PAYMENT ---
+  // --- 3. HANDLE RAZORPAY PAYMENT ---
   const handleRazorpayPayment = async (backendResponse) => {
       const isScriptLoaded = await loadRazorpayScript();
       if (!isScriptLoaded) {
@@ -118,8 +157,6 @@ const Checkout = () => {
           return;
       }
 
-      // Backend se aaya hua data destructure karo
-      // Controller sends: { order: {...}, razorPayDetails: { id, amount, key, currency } }
       const { razorPayDetails, order } = backendResponse;
 
       const options = {
@@ -128,14 +165,11 @@ const Checkout = () => {
           currency: razorPayDetails.currency,
           name: "SavoryBites",
           description: `Table ${formData.tableNumber} - Order Payment`,
-          order_id: razorPayDetails.id, // Razorpay Order ID from Backend
+          order_id: razorPayDetails.id, 
           
-          // SUCCESS HANDLER
           handler: async function (response) {
               try {
                   toast.info("Verifying Payment...");
-                  
-                  // Verify API Call
                   const verifyRes = await api.post('/orders/verify-payment', {
                       razorPayOrderId: response.razorpay_order_id,
                       razorPayPaymentId: response.razorpay_payment_id,
@@ -150,8 +184,7 @@ const Checkout = () => {
                       toast.error("Payment Verification Failed");
                   }
               } catch (error) {
-                  console.error(error);
-                  toast.error("Server Verification Failed");
+                  toast.error(error,"Server Verification Failed");
               } finally {
                   setLoading(false);
               }
@@ -162,9 +195,7 @@ const Checkout = () => {
               email: formData.customerEmail,
               contact: formData.customerPhone,
           },
-          theme: {
-              color: "#D4AF37", // Gold Theme
-          },
+          theme: { color: "#D4AF37" },
           modal: {
               ondismiss: function() {
                   setLoading(false);
@@ -218,33 +249,21 @@ const Checkout = () => {
                         <div>
                             <label className="text-xs text-gray-500 uppercase tracking-widest block mb-2">Full Name</label>
                             <input 
-                                type="text" 
-                                name="customerName" 
-                                value={formData.customerName} 
-                                onChange={handleChange}
-                                placeholder="Enter Name"
+                                type="text" name="customerName" value={formData.customerName} onChange={handleChange} placeholder="Enter Name"
                                 className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-yellow-500/50 focus:outline-none transition-colors"
                             />
                         </div>
                         <div>
                             <label className="text-xs text-gray-500 uppercase tracking-widest block mb-2">Phone Number *</label>
                             <input 
-                                type="tel" 
-                                name="customerPhone" 
-                                value={formData.customerPhone} 
-                                onChange={handleChange}
-                                placeholder="Required"
+                                type="tel" name="customerPhone" value={formData.customerPhone} onChange={handleChange} placeholder="Required"
                                 className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-yellow-500/50 focus:outline-none transition-colors"
                             />
                         </div>
                         <div className="md:col-span-2">
                             <label className="text-xs text-gray-500 uppercase tracking-widest block mb-2">Email (Optional)</label>
                             <input 
-                                type="email" 
-                                name="customerEmail" 
-                                value={formData.customerEmail} 
-                                onChange={handleChange}
-                                placeholder="For receipt"
+                                type="email" name="customerEmail" value={formData.customerEmail} onChange={handleChange} placeholder="For receipt"
                                 className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-yellow-500/50 focus:outline-none transition-colors"
                             />
                         </div>
@@ -260,22 +279,14 @@ const Checkout = () => {
                         <div>
                             <label className="text-xs text-gray-500 uppercase tracking-widest block mb-2">Table Number *</label>
                             <input 
-                                type="number" 
-                                name="tableNumber" 
-                                value={formData.tableNumber} 
-                                onChange={handleChange}
-                                placeholder="Check table stand"
+                                type="number" name="tableNumber" value={formData.tableNumber} onChange={handleChange} placeholder="Check table stand"
                                 className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-yellow-500/50 focus:outline-none transition-colors"
                             />
                         </div>
                         <div>
                             <label className="text-xs text-gray-500 uppercase tracking-widest block mb-2">Chef Notes</label>
                             <input 
-                                type="text" 
-                                name="notes" 
-                                value={formData.notes} 
-                                onChange={handleChange}
-                                placeholder="Less spicy, No onions..."
+                                type="text" name="notes" value={formData.notes} onChange={handleChange} placeholder="Less spicy, No onions..."
                                 className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-yellow-500/50 focus:outline-none transition-colors"
                             />
                         </div>
@@ -290,30 +301,15 @@ const Checkout = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Cash Option */}
                         <label className={`cursor-pointer border rounded-xl p-4 flex items-center gap-4 transition-all ${formData.paymentMethod === 'cash' ? 'bg-yellow-900/20 border-yellow-500/50' : 'border-white/10 hover:border-white/30'}`}>
-                            <input 
-                                type="radio" 
-                                name="paymentMethod" 
-                                value="cash" 
-                                checked={formData.paymentMethod === 'cash'} 
-                                onChange={handleChange} 
-                                className="accent-yellow-500 w-5 h-5"
-                            />
+                            <input type="radio" name="paymentMethod" value="cash" checked={formData.paymentMethod === 'cash'} onChange={handleChange} className="accent-yellow-500 w-5 h-5" />
                             <div>
                                 <span className="font-bold text-white block">Pay at Counter</span>
                                 <span className="text-xs text-gray-400">Cash / Card after meal</span>
                             </div>
                         </label>
-
                         {/* Razorpay Option */}
                         <label className={`cursor-pointer border rounded-xl p-4 flex items-center gap-4 transition-all ${formData.paymentMethod === 'razorpay' ? 'bg-yellow-900/20 border-yellow-500/50' : 'border-white/10 hover:border-white/30'}`}>
-                            <input 
-                                type="radio" 
-                                name="paymentMethod" 
-                                value="razorpay" 
-                                checked={formData.paymentMethod === 'razorpay'} 
-                                onChange={handleChange} 
-                                className="accent-yellow-500 w-5 h-5"
-                            />
+                            <input type="radio" name="paymentMethod" value="razorpay" checked={formData.paymentMethod === 'razorpay'} onChange={handleChange} className="accent-yellow-500 w-5 h-5" />
                             <div>
                                 <span className="font-bold text-white block">Pay Online</span>
                                 <span className="text-xs text-gray-400">UPI, Netbanking, Cards</span>
@@ -321,7 +317,6 @@ const Checkout = () => {
                         </label>
                     </div>
                 </section>
-
             </div>
 
             {/* RIGHT COLUMN: SUMMARY */}
@@ -349,24 +344,50 @@ const Checkout = () => {
                         </div>
                         <div className="flex justify-between text-gray-400 text-sm">
                             <span>GST (5%)</span>
-                            <span>₹{gstAmount}</span>
+                            <span>+ ₹{gstAmount}</span>
                         </div>
                         
+                        {/* Discount Row (Conditional) */}
+                        {discount > 0 && (
+                            <div className="flex justify-between text-green-500 text-sm font-bold">
+                                <span>Discount ({appliedCoupon})</span>
+                                <span>- ₹{discount}</span>
+                            </div>
+                        )}
+
                         {/* Coupon Input */}
                         <div className="pt-2">
-                            <div className="flex gap-2">
-                                <input 
-                                    type="text"
-                                    name="couponCode"
-                                    value={formData.couponCode}
-                                    onChange={handleChange}
-                                    placeholder="COUPON CODE"
-                                    className="flex-1 bg-black border border-white/20 rounded px-3 py-2 text-xs text-white focus:outline-none uppercase"
-                                />
-                                <button className="text-xs font-bold bg-gray-800 text-yellow-500 px-3 rounded border border-gray-700 hover:bg-gray-700">
-                                    APPLY
-                                </button>
-                            </div>
+                            {!appliedCoupon ? (
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1">
+                                        <Tag className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
+                                        <input 
+                                            type="text"
+                                            name="couponCode"
+                                            value={formData.couponCode}
+                                            onChange={handleChange}
+                                            placeholder="COUPON CODE"
+                                            className="w-full bg-black border border-white/20 rounded px-3 py-2 pl-9 text-xs text-white focus:outline-none uppercase focus:border-yellow-500"
+                                        />
+                                    </div>
+                                    <button 
+                                        onClick={handleApplyCoupon} 
+                                        disabled={couponLoading || !formData.couponCode}
+                                        className="text-xs font-bold bg-gray-800 text-yellow-500 px-3 rounded border border-gray-700 hover:bg-gray-700 disabled:opacity-50"
+                                    >
+                                        {couponLoading ? '...' : 'APPLY'}
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex justify-between items-center bg-green-900/20 border border-green-500/30 p-2 rounded">
+                                    <span className="text-xs text-green-400 font-bold flex items-center gap-1">
+                                        <CheckCircle size={14} /> Coupon Applied
+                                    </span>
+                                    <button onClick={handleRemoveCoupon} className="text-gray-400 hover:text-white">
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -389,7 +410,7 @@ const Checkout = () => {
                         ) : (
                             <>
                                 <CheckCircle className="w-5 h-5" /> 
-                                {formData.paymentMethod === 'razorpay' ? 'Pay & Order' : 'Confirm Order'}
+                                {formData.paymentMethod === 'razorpay' ? `Pay ₹${grandTotal}` : `Confirm Order (₹${grandTotal})`}
                             </>
                         )}
                     </button>

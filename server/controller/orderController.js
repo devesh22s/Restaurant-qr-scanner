@@ -5,6 +5,7 @@ import Coupon from "../model/coupon.js";
 import Menu from "../model/menu.js";
 import myModel from "../model/User.js";
 import razorpay from "../config/razorpay.js"; 
+import Table from "../model/table.js";
 import { SuccessResponse, ErrorResponse } from "../utils/responseWrapper.js";
 
 // Helper: Calculate Order Number
@@ -228,4 +229,96 @@ const clearCartAndUpdateStats = async (cart, type, userId, amount) => {
             $inc: { totalOrders: 1, totalSpend: amount } 
         });
     }
+};
+
+
+
+// ================================================
+
+// GET ADMIN DASHBOARD STATS
+export const getAdminStats = async (req, res, next) => {
+  try {
+    // 1. Total Revenue (Sabhi orders ka sum jinka payment success hai)
+    const revenueData = await Order.aggregate([
+      { $match: { paymentStatus: "success" } },
+      { $group: { _id: null, total: { $sum: "$billDetails.finalAmount" } } }
+    ]);
+    const totalRevenue = revenueData.length > 0 ? revenueData[0].total : 0;
+
+    // 2. Counts
+    const pendingOrders = await Order.countDocuments({ orderStatus: "pending" });
+    const completedOrders = await Order.countDocuments({ orderStatus: "served" });
+    
+    // 3. Active Tables (Jahan koi session active hai)
+    // Note: Iske liye Table model me 'isOccupied' flag hona chahiye, abhi ke liye dummy logic ya Order based logic
+    const activeTables = await Order.countDocuments({ orderStatus: { $in: ['pending', 'preparing', 'ready'] } });
+
+    // 4. Recent Orders (Top 5)
+    const recentOrders = await Order.find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select("orderNumber customerName tableNumber billDetails.finalAmount orderStatus createdAt");
+
+    res.status(200).json({
+      success: true,
+      stats: {
+        totalRevenue,
+        pendingOrders,
+        completedOrders,
+        activeTables,
+        recentOrders
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
+// =================================================
+// 1. GET ALL ORDERS (ADMIN ONLY)
+export const getAllOrders = async (req, res, next) => {
+  try {
+    const orders = await Order.find()
+      .sort({ createdAt: -1 }) // Latest first
+      .populate('items.menuItemId'); // Item details bhi chahiye
+
+    res.status(200).json({
+      success: true,
+      orders
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 2. UPDATE ORDER STATUS (ADMIN ONLY)
+export const updateOrderStatus = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body; // e.g., 'preparing', 'ready', 'served'
+
+    const order = await Order.findByIdAndUpdate(
+      orderId,
+      { orderStatus: status },
+      { new: true }
+    );
+
+    if (!order) {
+      return ErrorResponse(res, 404, "Order not found");
+    }
+
+    // Optional: Notify Kitchen/User via Socket here
+    // const io = req.app.get('io');
+    // io.emit('orderStatusUpdate', { orderId, status });
+
+    res.status(200).json({
+      success: true,
+      message: "Order status updated",
+      order
+    });
+  } catch (error) {
+    next(error);
+  }
 };

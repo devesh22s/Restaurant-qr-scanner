@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { ToastProvider } from "./context/ToastContext";
 
 // Components & Pages
@@ -7,29 +7,40 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Welcome from "./pages/Welcome";
 import FindYourAccount from "./pages/FindYourAccount";
-import Dashboard from "./Component/Dashboard";
 
-// Main App Pages
+// Main App Pages (Customer)
 import Home from "./Component/Home";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import OrderSuccess from "./pages/OrderSuccess";
+import Orders from "./pages/Orders";
+
+// Admin Pages
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminTables from "./pages/admin/AdminTables";
+import AdminCoupons from "./pages/admin/AdminCoupons";
+// import AdminMenu from "./pages/admin/AdminMenu"; // Jab bana lo tab uncomment karna
 
 // Layouts & Wrappers
 import Protectedroute from "./Component/Protectedroute";
 import OpenRoutes from "./Component/OpenRoutes";
-import AuthenticatedLayout from "./Component/AuthenticatedLayout";
-import Orders from "./pages/Orders";
+import AuthenticatedLayout from "./Component/AuthenticatedLayout"; // Customer Layout
+import AdminLayout from "./Component/AdminLayout"; // Admin Layout
+import AdminMenu from "./pages/admin/AdminMenu";
+import AdminOrders from "./pages/admin/AdminOrders";
 
 const App = () => {
   return (
     <ToastProvider>
       <Router>
         <Routes>
-          {/* --- GUEST / ONBOARDING ROUTES --- */}
+          
+          {/* =========================================
+              1. PUBLIC / GUEST ROUTES
+          ========================================= */}
           <Route path="/welcome" element={<Welcome />} />
           <Route path="/welcome/:id" element={<Welcome />} />
-
+          
           <Route
             path="/register"
             element={
@@ -55,66 +66,38 @@ const App = () => {
             }
           />
 
-          {/* --- MAIN APP ROUTES (With Header/Layout) --- */}
+          {/* =========================================
+              2. CUSTOMER ROUTES (Header + Footer)
+          ========================================= */}
+          {/* Ye saare pages AuthenticatedLayout ke andar khulenge */}
+          <Route element={<AuthenticatedLayout />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/order-success" element={<OrderSuccess />} />
+            <Route path="/orders" element={<Orders />} />
+          </Route>
 
-          {/* HOME: AuthenticatedLayout use kiya taaki Guest bhi Menu dekh sake */}
-          <Route
-            path="/"
-            element={
-              <AuthenticatedLayout>
-                <Home />
-              </AuthenticatedLayout>
-            }
-          />
+          {/* =========================================
+              3. ADMIN ROUTES (Sidebar Layout)
+          ========================================= */}
+         {/* ✅ ADMIN ROUTES (Protected + AdminLayout) */}
+<Route 
+  path="/admin" 
+  element={
+    <Protectedroute adminOnly={true}>
+      <AdminLayout /> {/* Sidebar wala layout */}
+    </Protectedroute>
+  }
+>
+  <Route index element={<Navigate to="dashboard" replace />} /> {/* Auto /admin -> /admin/dashboard */}
+  <Route path="dashboard" element={<AdminDashboard />} />
+  <Route path="tables" element={<AdminTables />} />
+  <Route path="coupons" element={<AdminCoupons />} />
+  <Route path="menu" element={<AdminMenu />} />
+  <Route path="orders" element={<AdminOrders />} />
+</Route>
 
-          {/* CART: Accessible to Everyone */}
-          <Route
-            path="/cart"
-            element={
-              <AuthenticatedLayout>
-                <Cart />
-              </AuthenticatedLayout>
-            }
-          />
-
-          {/* CHECKOUT: Payment Page (New) */}
-          <Route
-            path="/checkout"
-            element={
-              <AuthenticatedLayout>
-                <Checkout />
-              </AuthenticatedLayout>
-            }
-          />
-
-          {/* SUCCESS PAGE (New) */}
-          <Route
-            path="/order-success"
-            element={
-              <AuthenticatedLayout>
-                <OrderSuccess />
-              </AuthenticatedLayout>
-            }
-          />
-          {/* orders page */}
-          <Route
-            path="/orders"
-            element={
-              <AuthenticatedLayout>
-                <Orders />
-              </AuthenticatedLayout>
-            }
-          />
-
-          {/* --- ADMIN / PROTECTED ROUTES --- */}
-          <Route
-            path="/dashboard"
-            element={
-              <Protectedroute>
-                <Dashboard />
-              </Protectedroute>
-            }
-          />
         </Routes>
       </Router>
     </ToastProvider>

@@ -1,147 +1,121 @@
-
-import Cart from "../model/cart.js";
 import Coupon from "../model/coupon.js";
-import myModel from "../model/User.js";
 
-export const getAllCoupouns = async (req, res) => {
+// ==============================================
+//  ADMIN CONTROLLERS
+// ==============================================
+
+// 1. Create Coupon
+export const createCoupon = async (req, res) => {
   try {
-    const {cartTotal} = req.query
-    const userId = req.user.id
-
-    const user = await myModel.findById(userId);
-    console.log('fetched from database', user);
-
-// user cart fetch -> totalcartprice
-const cart = await Cart.findOne({userId})
-let totalcartprice;
-if(cart){
-  totalcartprice = cart.totalCartPrice
-}
-
-//how to fetch all coupans than apply map method ;
-    const allCoupans = await Coupon.find();
-    console.log(allCoupans);
-
-// const AvailabelCoupouns = allcoupouns.filter((coupoun)=>{
-//   return totalcartprice > coupons.minorderAmount &&  new Date() > coupons.validFrom && new Date() < coupons.validTo
-// })
-
-const CoupansAfterCalculation = allCoupans.map((coupans) => {
-      //calculate isAvailable flag
-      const isCartPriceMeetsMinOrderAmount =
-        totalcartprice > coupans.minorderAmount;
-      const isCoupanIsValid =
-        new Date() > coupans.validFrom && new Date() < coupans.validTo;
-      const isUserFirstTime = user.totalOrders === 0;
-      const isCoupanIsForFirstOrder = coupans.isFirstOrder;
-      console.log(coupans.code, isCartPriceMeetsMinOrderAmount);
-
-      const isAvailable =
-        isCartPriceMeetsMinOrderAmount &&
-        isCoupanIsValid &&
-        (isCoupanIsForFirstOrder ? isUserFirstTime : true);
-
-      let discountAmount;
-      if (coupans.discountType) {
-        if (coupans.discountType === 'fixedAmount') {
-          discountAmount = totalcartprice - coupans.discountValue;
-        }
-        if (coupans.discountType === 'percentage') {
-          discountAmount = (totalcartprice * coupans.discountValue) / 100;
-        }
-        if (coupans.maxDiscount && discountAmount > coupans.maxDiscount) {
-          discountAmount = coupans.maxDiscount;
-        }
-      }
-      return {
-        _id: coupans._id,
-
-        finalAmount: totalcartprice - discountAmount,
-        code: coupans.code,
-        discountType: coupans.discountType,
-        description: coupans.description,
-        discountAmount,
-        isFirstOrder: coupans.isFirstOrder,
-        minOrderAmount: coupans.minOrderAmount,
-        validFrom: coupans.validFrom,
-        validTo: coupans.validTo,
-        isAvailable,
-        isCartPriceMeetsMinOrderAmount,
-        totalcartprice,
-      };
-    });
-    //  500 * 10 / 100 => 50
-    //1000 * 10 / 100 => 100   maxDiscount = 150
-    //2000 * 10 / 200 > maxDiscount = 150
-    // disocuntValue = maxDiscount;
-    res.json({
-      CoupansAfterCalculation,
-    });
-  } catch (error) {}
-};
-
-
-
-export const registerCoupan = async (req, res) => {
-  try {
-    const {
-      code,
-      discountType,
-      maxDiscount,
-      validFrom,
-      validTo,
-      usageLimit,
-      minOrderAmount,
-      description,
+    const { 
+      code, discountType, discountValue, maxDiscount, 
+      minOrderAmount, validFrom, validTo, usageLimit, description, isFirstOrder 
     } = req.body;
 
-    if (!code || !discountType) {
-      return res
-        .status(400)
-        .json({ message: 'Code and discountType are required' });
-    }
+    const existing = await Coupon.findOne({ code: code.toUpperCase() });
+    if (existing) return res.status(400).json({ message: "Coupon code already exists" });
 
-    const existingCoupan = await Coupan.findOne({ code: code.toUpperCase() });
-    if (existingCoupan) {
-      return res.status(400).json({ message: 'Coupan code already exists' });
-    }
-
-    const coupanData = {
+    const newCoupon = await Coupon.create({
       code: code.toUpperCase(),
       discountType,
-      maxDiscount: maxDiscount || null,
-      validFrom: validFrom || new Date(),
-      validTo: validTo || null,
-
-      usageLimit: usageLimit || null,
+      discountValue,
+      maxDiscount: discountType === 'percentage' ? maxDiscount : null,
       minOrderAmount: minOrderAmount || 0,
-
-      description: description || '',
-      isActive: true,
+      validFrom: validFrom || new Date(),
+      validTo: validTo,
+      usageLimit: usageLimit || null,
       usedCount: 0,
-    };
-
-    const savedCoupan = await new Coupan(coupanData).save();
-
-    res.status(201).json({
-      message: 'Coupan created successfully',
-      coupan: savedCoupan,
+      isFirstOrder: isFirstOrder || false,
+      description,
+      isActive: true
     });
+
+    res.status(201).json({ success: true, message: "Coupon Created", coupon: newCoupon });
   } catch (error) {
-    console.error('Error registering coupan:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: error.message });
   }
 };
 
+// 2. Get All Coupons (For Admin Dashboard)
+export const getAdminCoupons = async (req, res) => {
+  try {
+    const coupons = await Coupon.find().sort({ createdAt: -1 });
+    res.status(200).json({ success: true, coupons });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
+// 3. Delete Coupon
+export const deleteCoupon = async (req, res) => {
+  try {
+    await Coupon.findByIdAndDelete(req.params.id);
+    res.status(200).json({ success: true, message: "Coupon Deleted" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
+// ==============================================
+//  CUSTOMER CONTROLLERS (Checkout Logic)
+// ==============================================
 
-//NOTE js? data type=> primitiv and non primitve 
-// memory allocation  , dynamically type language  statically typed languages
-//client js and server js kya difference ?
-//type coersion and conversion ? Number('5')
-//truthy and falsy values ? falsy => null , undefined , '' , NaN , -0 , 0 ,false
+// 4. Verify/Apply Coupon
+export const verifyCoupon = async (req, res) => {
+  try {
+    const { code, cartTotal } = req.body;
 
-// null && 0 
-// false && false
-// null
+    // 1. Find Coupon
+    const coupon = await Coupon.findOne({ code: code.toUpperCase(), isActive: true });
+    
+    if (!coupon) {
+      return res.status(404).json({ success: false, message: "Invalid Coupon Code" });
+    }
+
+    // 2. Check Expiry
+    if (new Date() > new Date(coupon.validTo)) {
+      return res.status(400).json({ success: false, message: "Coupon Expired" });
+    }
+    
+    if (new Date() < new Date(coupon.validFrom)) {
+        return res.status(400).json({ success: false, message: "Coupon not active yet" });
+    }
+
+    // 3. Check Min Order Amount
+    if (cartTotal < coupon.minOrderAmount) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Minimum order of ₹${coupon.minOrderAmount} required` 
+      });
+    }
+
+    // 4. Check Usage Limit
+    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+      return res.status(400).json({ success: false, message: "Coupon usage limit reached" });
+    }
+
+    // 5. Calculate Discount
+    let discountAmount = 0;
+    if (coupon.discountType === 'percentage') {
+      discountAmount = (cartTotal * coupon.discountValue) / 100;
+      if (coupon.maxDiscount) {
+        discountAmount = Math.min(discountAmount, coupon.maxDiscount);
+      }
+    } else {
+      discountAmount = coupon.discountValue;
+    }
+
+    // Ensure discount doesn't exceed total
+    discountAmount = Math.min(discountAmount, cartTotal);
+
+    res.status(200).json({
+      success: true,
+      message: "Coupon Applied",
+      discountAmount: Math.round(discountAmount),
+      code: coupon.code
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

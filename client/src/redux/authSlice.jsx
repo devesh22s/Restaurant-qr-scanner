@@ -1,11 +1,21 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-// FIX 1: Import our custom API instance instead of raw axios
 import api from '../lib/api'; 
+
+// ✅ HELPER: Refresh hone par LocalStorage se User Object wapas laane ke liye
+const getUserFromStorage = () => {
+    try {
+    const user = localStorage.getItem("user");
+    return user ? JSON.parse(user) : null;
+  } catch (error) {
+    console.log(error.response?.data?.message)
+    return null;
+  }
+};
+
+// --- ASYNC THUNKS ---
 
 export const login = createAsyncThunk('/auth/login', async(data, thunkApi) => {
     try {
-        // FIX 2: Use api.post instead of axios.post
-        // URL ab short ho gaya kyunki baseURL api.js mein set hai
         const res = await api.post('/auth/login', data);
         return res.data;
     } catch(error) {
@@ -17,7 +27,6 @@ export const login = createAsyncThunk('/auth/login', async(data, thunkApi) => {
 
 export const register = createAsyncThunk('/auth/register', async (data, thunkApi) => {
   try {
-    // FIX 3: Updated URL logic here as well
     const res = await api.post('/auth/register', data);
     return res.data;
   } catch (error) {
@@ -27,33 +36,35 @@ export const register = createAsyncThunk('/auth/register', async (data, thunkApi
   }
 });
 
+// --- SLICE ---
+
 const authSlice = createSlice({
-    name : "auth",
+    name: "auth",
     initialState: {
         loading: false,
-        error : null,
-        name: localStorage.getItem("name") || null,
+        error: null,
+        
+        // ✅ FIX: Consolidated User Object (Isse 'undefined' name ki problem solve hogi)
+        user: getUserFromStorage(), 
+        
+        // Standalone fields for easy access
         role: localStorage.getItem("role") || null,
-        email: localStorage.getItem("email") || null,
-        userId: localStorage.getItem("userId") || null,
-        accessToken : localStorage.getItem("accessToken") || null, // Load token from storage on refresh
-        refershToken: null
+        accessToken : localStorage.getItem("accessToken") || null, 
     },
+    
     reducers:{
       logout: (state) => {
-        state.name = null;
-        state.email = null;
-        state.userId = null;
+        state.user = null;
         state.role = null;
         state.accessToken = null;
-        state.refershToken = null;
+        state.error = null;
         
-        localStorage.clear(); // Clear everything
+        localStorage.clear(); // Sab saaf
       }
     },
 
     extraReducers: (builder) => {
-        // LOGIN CASES
+        // --- LOGIN CASES ---
         builder.addCase(login.pending, (state) => {
             state.loading = true;
             state.error = null;
@@ -62,28 +73,26 @@ const authSlice = createSlice({
             console.log("Login Success:", action.payload);
             const { data, accessToken, refreshToken } = action.payload;
 
-            state.name = data.name;
-            state.email = data.email;
-            state.userId = data._id;
+            // 1. Update Redux State
+            state.user = data; // Pura object (name, email, id, etc.)
             state.role = data.role;
             state.accessToken = accessToken;
-            state.refershToken = refreshToken;
+            state.loading = false;
 
+            // 2. Update LocalStorage (Persist Data)
             localStorage.setItem("accessToken", accessToken);
             localStorage.setItem("refreshToken", refreshToken);
-            localStorage.setItem("userId", data._id);
-            localStorage.setItem("email", data.email);
             localStorage.setItem("role", data.role);
-            localStorage.setItem("name", data.name);
             
-            state.loading = false;
+            // ✅ IMP: Pura user object stringify karke save karo (Refresh fix)
+            localStorage.setItem("user", JSON.stringify(data)); 
         })
         .addCase(login.rejected, (state, action) => {
             state.error = action.payload;
             state.loading = false;
         })
 
-        // REGISTER CASES
+        // --- REGISTER CASES ---
         .addCase(register.pending, (state) => {
             state.loading = true;
             state.error = null;
@@ -91,8 +100,6 @@ const authSlice = createSlice({
         .addCase(register.fulfilled, (state, action) => {
             console.log("Register Success:", action.payload);
             state.loading = false;
-            // Registration doesn't usually auto-login, so we don't set state here 
-            // unless backend returns token on register too.
         })
         .addCase(register.rejected, (state, action) => {
             state.error = action.payload;

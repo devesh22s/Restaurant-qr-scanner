@@ -1,11 +1,21 @@
-import express from 'express'
-import  {createTable, getAllTable, getTableBySlug}  from '../controller/tableController.js';
-import verify from '../middleware/verify.js';
+import express from 'express';
+import { createTable, getAllTable, getTableBySlug, deleteTable } from '../controller/tableController.js';
+// Middleware imports ensure karein
+import verify from '../middleware/verify.js'; // ya identifyUser
 import checkRole from '../middleware/checkRole.js';
+
 const router = express.Router();
 
-router.post("/tables", createTable)
-router.get("/tables/:slug", getTableBySlug)
-// to access it user need to login (authentication), then role of that user is admin(authorization)
-router.get("/tables", verify, checkRole(["admin"]), getAllTable)
-export default router 
+// 1. Create Table (Admin Only)
+router.post("/", verify, checkRole(["admin"]), createTable);
+
+// 2. Get All Tables (Admin Only)
+router.get("/", verify, checkRole(["admin"]), getAllTable);
+
+// 3. Delete Table (Admin Only) - ✅ NEW
+router.delete("/:id", verify, checkRole(["admin"]), deleteTable);
+
+// 4. Get Table by Slug (Public/Guest) - Isko last me rakhein
+router.get("/:slug", getTableBySlug);
+
+export default router;
