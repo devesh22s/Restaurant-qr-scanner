@@ -48,19 +48,23 @@ const Checkout = () => {
 
   const gstAmount = Math.round(totalCartPrice * 0.05);
   const grandTotal = Math.max(0, totalCartPrice + gstAmount - discount);
+
+  // Identity for Table Ownership
   const myIdentity = userId || localStorage.getItem("sessionToken");
 
-  // 1. Fetch Data
+  // 1. Fetch Cart & Tables
   useEffect(() => {
+    // Only fetch cart if items are empty (initially)
     if (items.length === 0) dispatch(getCart());
+    
     const fetchTables = async () => {
         try {
             const res = await api.get('/tables'); 
             if(res.data.success) {
+                // Show all active tables so we can map through them
                 setTables(res.data.data.filter(t => t.isActive));
             }
-        } catch (err) {console.log(err);
-         }
+        } catch (err) { console.error("Failed to load tables", err); }
     };
     fetchTables();
   }, [dispatch, items.length]);
@@ -69,7 +73,7 @@ const Checkout = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // 2. Coupon
+  // 2. Apply Coupon
   const handleApplyCoupon = async () => {
     if (!formData.couponCode) return toast.error("Enter coupon code");
     setCouponLoading(true);
@@ -90,7 +94,7 @@ const Checkout = () => {
     } finally { setCouponLoading(false); }
   };
 
-  // 3. MAIN ORDER FUNCTION
+  // 3. Place Order
   const handlePlaceOrder = async () => {
     if (!formData.tableNumber) return toast.error("Please select a Table");
     if (!formData.customerPhone) return toast.error("Contact number is required");
@@ -108,7 +112,6 @@ const Checkout = () => {
             notes: formData.notes
         };
 
-        // ✅ Correct Route: /orders/place
         const response = await api.post('/orders/place', orderPayload);
         const { success, data, message } = response.data;
 
@@ -117,19 +120,17 @@ const Checkout = () => {
             if (formData.paymentMethod === 'cash') {
                 toast.success(message || "Order Placed Successfully! 🍲");
                 dispatch(resetCart());
-                // ✅ Navigate immediately (Loader will unmount)
                 navigate('/order-success', { 
                     state: { 
-                        orderId: data._id || data.orderId, 
+                        orderId: data.orderId, // Check controller response structure
                         orderNumber: data.orderNumber 
                     } 
                 });
-                return; 
             } 
-            
             // === ONLINE ===
             else if (formData.paymentMethod === 'razorpay') {
-                await handleRazorpayPayment(data);
+                // Pass order data to handler
+                await handleRazorpayPayment(data); 
             }
         } else {
             toast.error(message || "Order failed.");
@@ -161,6 +162,13 @@ const Checkout = () => {
           description: `Order #${order.orderNumber}`,
           order_id: razorPayDetails.id, 
           
+          // ✅ FIX 2: Prefill User Contact
+          prefill: {
+              name: formData.customerName,
+              email: formData.customerEmail,
+              contact: formData.customerPhone 
+          },
+
           handler: async function (response) {
               try {
                   toast.info("Verifying Payment...");
@@ -172,11 +180,15 @@ const Checkout = () => {
 
                   if (verifyRes.data.success) {
                       toast.success("Paid Successfully!");
+                      // ✅ FIX 1: Only reset cart on SUCCESS
                       dispatch(resetCart());
-                      navigate('/order-success', { state: { orderId: order._id, orderNumber: order.orderNumber } });
+                      navigate('/order-success', { 
+                          state: { orderId: order._id, orderNumber: order.orderNumber } 
+                      });
                   }
               } catch (error) { 
-                  toast.error(error,"Verification Failed"); 
+                  toast.error("Verification Failed"); 
+                  console.error(error);
               } finally { 
                   setLoading(false); 
               }
@@ -184,8 +196,10 @@ const Checkout = () => {
           theme: { color: "#D4AF37" },
           modal: { 
               ondismiss: function() { 
+                  // ✅ FIX 1: Reset loading if user closes modal (Cancelled)
                   setLoading(false); 
                   toast.warning("Payment Cancelled"); 
+                  // Do NOT reset cart here
               } 
           }
       };
@@ -201,6 +215,7 @@ const Checkout = () => {
        <h1 className="text-3xl font-cinzel font-bold text-white mb-8">Finalize Order</h1>
        
        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
           {/* LEFT: Forms */}
           <div className="lg:col-span-2 space-y-6">
              <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-6">
@@ -227,8 +242,14 @@ const Checkout = () => {
                         >
                             <option value="">-- Choose Table --</option>
                             {tables.map(table => {
-                                const isMyTable = table.isOccupied && table.currentOwner === myIdentity;
+                                // ✅ FIX 3: Check if table is occupied AND owned by current user
+                                const isMyTable = table.isOccupied && (
+                                    (table.currentOwner && table.currentOwner === myIdentity) ||
+                                    (table.currentOwner?._id === myIdentity) // Handle populated object
+                                );
+                                
                                 const isSelectable = !table.isOccupied || isMyTable;
+
                                 let label = `Table ${table.tableNumber} (${table.capacity} Seats)`;
                                 if (isMyTable) label += " - (Your Table)";
                                 else if (table.isOccupied) label += " - Occupied";
