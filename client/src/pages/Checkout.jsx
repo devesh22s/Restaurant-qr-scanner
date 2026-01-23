@@ -49,22 +49,20 @@ const Checkout = () => {
   const gstAmount = Math.round(totalCartPrice * 0.05);
   const grandTotal = Math.max(0, totalCartPrice + gstAmount - discount);
 
-  // Identity for Table Ownership
+  // ✅ Strong Identity Check
   const myIdentity = userId || localStorage.getItem("sessionToken");
 
   // 1. Fetch Cart & Tables
   useEffect(() => {
-    // Only fetch cart if items are empty (initially)
     if (items.length === 0) dispatch(getCart());
     
     const fetchTables = async () => {
         try {
             const res = await api.get('/tables'); 
             if(res.data.success) {
-                // Show all active tables so we can map through them
                 setTables(res.data.data.filter(t => t.isActive));
             }
-        } catch (err) { console.error("Failed to load tables", err); }
+        } catch (err) { console.error(err,"Failed to load tables"); }
     };
     fetchTables();
   }, [dispatch, items.length]);
@@ -94,7 +92,7 @@ const Checkout = () => {
     } finally { setCouponLoading(false); }
   };
 
-  // 3. Place Order
+  // 3. MAIN ORDER FUNCTION
   const handlePlaceOrder = async () => {
     if (!formData.tableNumber) return toast.error("Please select a Table");
     if (!formData.customerPhone) return toast.error("Contact number is required");
@@ -116,21 +114,23 @@ const Checkout = () => {
         const { success, data, message } = response.data;
 
         if (success) {
-            // === CASH ===
+            // === CASE A: CASH ===
             if (formData.paymentMethod === 'cash') {
                 toast.success(message || "Order Placed Successfully! 🍲");
-                dispatch(resetCart());
+                dispatch(resetCart()); // Cash me cart khali karo
                 navigate('/order-success', { 
                     state: { 
-                        orderId: data.orderId, // Check controller response structure
+                        orderId: data._id || data.orderId, 
                         orderNumber: data.orderNumber 
                     } 
                 });
+                return;
             } 
-            // === ONLINE ===
+            
+            // === CASE B: ONLINE ===
             else if (formData.paymentMethod === 'razorpay') {
-                // Pass order data to handler
-                await handleRazorpayPayment(data); 
+                // Razorpay start karo (Cart abhi khali mat karo)
+                await handleRazorpayPayment(data);
             }
         } else {
             toast.error(message || "Order failed.");
@@ -162,7 +162,7 @@ const Checkout = () => {
           description: `Order #${order.orderNumber}`,
           order_id: razorPayDetails.id, 
           
-          // ✅ FIX 2: Prefill User Contact
+          // ✅ Fix: Prefill Phone
           prefill: {
               name: formData.customerName,
               email: formData.customerEmail,
@@ -180,11 +180,8 @@ const Checkout = () => {
 
                   if (verifyRes.data.success) {
                       toast.success("Paid Successfully!");
-                      // ✅ FIX 1: Only reset cart on SUCCESS
-                      dispatch(resetCart());
-                      navigate('/order-success', { 
-                          state: { orderId: order._id, orderNumber: order.orderNumber } 
-                      });
+                      dispatch(resetCart()); // ✅ Verification ke baad cart khali
+                      navigate('/order-success', { state: { orderId: order._id, orderNumber: order.orderNumber } });
                   }
               } catch (error) { 
                   toast.error("Verification Failed"); 
@@ -196,10 +193,9 @@ const Checkout = () => {
           theme: { color: "#D4AF37" },
           modal: { 
               ondismiss: function() { 
-                  // ✅ FIX 1: Reset loading if user closes modal (Cancelled)
                   setLoading(false); 
                   toast.warning("Payment Cancelled"); 
-                  // Do NOT reset cart here
+                  // ✅ IMPORTANT: Cart is NOT reset here
               } 
           }
       };
@@ -215,9 +211,8 @@ const Checkout = () => {
        <h1 className="text-3xl font-cinzel font-bold text-white mb-8">Finalize Order</h1>
        
        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* LEFT: Forms */}
           <div className="lg:col-span-2 space-y-6">
+             {/* ... Guest Details & Payment Section Same as before ... */}
              <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-6">
                 <h3 className="text-lg font-bold text-white mb-4 flex gap-2"><User className="text-yellow-500"/> Guest Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -242,12 +237,9 @@ const Checkout = () => {
                         >
                             <option value="">-- Choose Table --</option>
                             {tables.map(table => {
-                                // ✅ FIX 3: Check if table is occupied AND owned by current user
-                                const isMyTable = table.isOccupied && (
-                                    (table.currentOwner && table.currentOwner === myIdentity) ||
-                                    (table.currentOwner?._id === myIdentity) // Handle populated object
-                                );
-                                
+                                // ✅ FIX: Better ID Comparison for "My Table"
+                                const ownerId = table.currentOwner ? (typeof table.currentOwner === 'object' ? table.currentOwner._id : table.currentOwner) : null;
+                                const isMyTable = table.isOccupied && String(ownerId) === String(myIdentity);
                                 const isSelectable = !table.isOccupied || isMyTable;
 
                                 let label = `Table ${table.tableNumber} (${table.capacity} Seats)`;
@@ -268,6 +260,7 @@ const Checkout = () => {
                         </select>
                       </div>
                    </div>
+                   {/* ... Notes input ... */}
                    <div>
                       <label className="text-xs text-gray-500 uppercase block mb-2">Notes</label>
                       <input name="notes" value={formData.notes} onChange={handleChange} placeholder="Less spicy..." className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white" />

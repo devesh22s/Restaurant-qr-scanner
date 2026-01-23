@@ -34,7 +34,7 @@ const tableSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
-    currentOwner: { type: String, default: null },
+    currentOwner: { type: mongoose.Schema.Types.Mixed, default: null },
 
     // ✅ 3. Live Tracking Fields (Optional but Recommended)
     currentOrderId: {
