@@ -3,15 +3,11 @@ import { useDispatch, useSelector } from "react-redux";
 import { getMyOrders } from "../redux/orderSlice";
 import { useNavigate } from "react-router-dom";
 import { 
-  Clock, 
-  CheckCircle, 
-  ChefHat, 
-  XCircle, 
-  ShoppingBag, 
-  Calendar,
-  Utensils
+  Clock, CheckCircle, ChefHat, XCircle, ShoppingBag, 
+  Calendar, Utensils, Percent
 } from "lucide-react";
 
+// Helper: Status Badge
 const getStatusBadge = (status) => {
   const styles = {
     pending: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
@@ -46,36 +42,26 @@ const Orders = () => {
     dispatch(getMyOrders());
   }, [dispatch]);
 
-  // Logic to calculate breakdown
+  // ✅ Helper: Extract Bill Details Safely
   const getBillBreakdown = (order) => {
-    let finalAmount = 0;
-    let taxAmount = 0;
-    let subTotal = 0;
-
-    // 1. Try to get exact data from Backend BillDetails
-    if (order.billDetails && order.billDetails.finalAmount) {
-        finalAmount = order.billDetails.finalAmount;
-        taxAmount = order.billDetails.taxAmount || 0;
-        subTotal = order.billDetails.subTotal || (finalAmount - taxAmount);
+    // 1. Backend Data (Preferred)
+    if (order.billDetails) {
+        return {
+            subTotal: order.billDetails.subTotal,
+            discount: order.billDetails.discountAmount || 0,
+            tax: order.billDetails.taxAmount,
+            final: order.billDetails.finalAmount
+        };
     } 
-    // 2. Fallback Calculation
+    // 2. Fallback Calculation (Old Orders)
     else {
-        // Sum up item prices
-        const rawTotal = order.items.reduce((acc, item) => {
-            const price = item.price || item.menuItemId?.price || 0;
-            return acc + (price * item.quantity);
-        }, 0);
-
-        // Assume rawTotal is subTotal, add 5% GST
-        subTotal = rawTotal;
-        taxAmount = Math.round(subTotal * 0.05);
-        finalAmount = subTotal + taxAmount;
+        const rawTotal = order.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+        const tax = Math.round(rawTotal * 0.05);
+        return { subTotal: rawTotal, discount: 0, tax, final: rawTotal + tax };
     }
-
-    return { subTotal, taxAmount, finalAmount };
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-yellow-500">Loading orders...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-yellow-500 font-cinzel animate-pulse">Fetching your orders...</div>;
 
   if (!orders || orders.length === 0) {
     return (
@@ -84,94 +70,113 @@ const Orders = () => {
             <Utensils className="w-10 h-10 text-gray-500" />
         </div>
         <h2 className="text-2xl font-cinzel font-bold text-white mb-2">No Orders Yet</h2>
-        <button onClick={() => navigate('/')} className="px-8 py-3 bg-yellow-600 hover:bg-yellow-500 text-black font-bold rounded-lg mt-4">Start Ordering</button>
+        <p className="text-gray-400 mb-6 font-manrope text-sm">Delicious food is just a click away.</p>
+        <button onClick={() => navigate('/')} className="px-8 py-3 bg-yellow-600 hover:bg-yellow-500 text-black font-bold rounded-lg shadow-lg hover:shadow-yellow-500/20 transition-all font-cinzel">Browse Menu</button>
       </div>
     );
   }
 
   return (
     <div className="max-w-4xl mx-auto pb-20 px-4 pt-6 font-manrope">
+      
+      {/* Page Title */}
       <div className="flex items-center gap-3 mb-8">
         <div className="p-2 bg-yellow-900/20 rounded-full border border-yellow-600/30">
             <ShoppingBag className="w-6 h-6 text-yellow-500" />
         </div>
-        <h1 className="text-3xl font-cinzel font-bold text-white">Your Orders</h1>
+        <div>
+            <h1 className="text-3xl font-cinzel font-bold text-white">Your Orders</h1>
+            <p className="text-xs text-yellow-600/70 uppercase tracking-widest font-bold mt-1">Track history & status</p>
+        </div>
       </div>
 
       <div className="space-y-6">
         {orders.map((order) => {
-          const { subTotal, taxAmount, finalAmount } = getBillBreakdown(order);
+          const { subTotal, discount, tax, final } = getBillBreakdown(order);
 
           return (
-            <div key={order._id} className="bg-[#0a0a0a] border border-white/10 rounded-xl overflow-hidden hover:border-yellow-600/30 transition-all duration-300">
+            <div key={order._id} className="bg-[#0a0a0a] border border-white/10 rounded-xl overflow-hidden hover:border-yellow-600/30 transition-all duration-300 shadow-lg">
               
-              {/* Header */}
+              {/* Card Header */}
               <div className="bg-white/5 px-6 py-4 flex flex-wrap justify-between items-center gap-4 border-b border-white/5">
                   <div className="flex flex-col">
                       <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Order ID</span>
-                      <span className="text-yellow-500 font-mono text-sm">#{order.orderNumber || order._id.slice(-6)}</span>
+                      <span className="text-yellow-500 font-mono text-sm font-bold">#{order.orderNumber?.slice(-6) || '---'}</span>
                   </div>
-                  <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2 text-gray-400 text-xs">
+                  <div className="flex flex-wrap items-center gap-4">
+                      <div className="flex items-center gap-2 text-gray-400 text-xs bg-black/40 px-3 py-1.5 rounded-lg border border-white/5">
                           <Calendar className="w-3 h-3" />
-                          {new Date(order.createdAt).toLocaleDateString()}
+                          {new Date(order.createdAt).toLocaleDateString([], {day:'numeric', month:'short', year:'numeric'})}
                       </div>
                       {getStatusBadge(order.orderStatus || 'pending')}
                   </div>
               </div>
 
-              {/* Content */}
+              {/* Card Content */}
               <div className="p-6">
-                  <div className="flex flex-col md:flex-row justify-between gap-6">
+                  <div className="flex flex-col md:flex-row justify-between gap-8">
                       
                       {/* Left: Items List */}
-                      <div className="flex-1 space-y-3">
+                      <div className="flex-1 space-y-4">
                           {order.items.map((item, idx) => (
-                              <div key={idx} className="flex items-center justify-between text-sm">
-                                  <div className="flex items-center gap-3">
-                                      <span className="bg-white/10 text-white w-6 h-6 flex items-center justify-center rounded text-xs font-bold">
+                              <div key={idx} className="flex items-center justify-between text-sm group">
+                                  <div className="flex items-center gap-4">
+                                      <span className="bg-white/5 text-white w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold border border-white/10">
                                           {item.quantity}x
                                       </span>
-                                      <span className="text-gray-300">
-                                          {item.name || (item.menuItemId ? item.menuItemId.name : "Item Unavailable")}
-                                      </span>
+                                      <div>
+                                          <span className="text-gray-200 font-medium block group-hover:text-yellow-500 transition-colors">
+                                              {item.name || "Item Name"}
+                                          </span>
+                                          {/* Optional: Add item customization details here if stored */}
+                                      </div>
                                   </div>
-                                  <span className="text-gray-500 font-medium">
-                                      ₹{(item.price || item.menuItemId?.price || 0) * item.quantity}
+                                  <span className="text-gray-500 font-mono">
+                                      ₹{(item.price || 0) * item.quantity}
                                   </span>
                               </div>
                           ))}
                       </div>
 
-                      {/* Right: Bill Summary Box (Updated for GST) */}
-                      <div className="w-full md:w-56 border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-6 flex flex-col justify-center">
+                      {/* Right: Bill Summary Box */}
+                      <div className="w-full md:w-64 bg-white/[0.02] rounded-xl p-5 border border-white/5 flex flex-col justify-center">
                           
-                          <div className="flex justify-between text-sm text-gray-400 mb-1">
-                              <span>Payment</span>
-                              <span className="uppercase text-xs font-bold text-gray-300">{order.paymentMethod}</span>
+                          <div className="flex justify-between text-xs text-gray-400 mb-3">
+                              <span className="uppercase tracking-wider font-bold">Payment Method</span>
+                              <span className="text-white capitalize bg-blue-900/20 text-blue-300 px-2 py-0.5 rounded text-[10px] border border-blue-500/20">
+                                  {order.paymentMethod}
+                              </span>
                           </div>
 
-                          {/* Break line */}
-                          <div className="my-2 border-b border-white/5"></div>
+                          <div className="space-y-2 pt-3 border-t border-dashed border-white/10">
+                              {/* Subtotal */}
+                              <div className="flex justify-between text-xs text-gray-400">
+                                  <span>Item Total</span>
+                                  <span>₹{subTotal}</span>
+                              </div>
 
-                          {/* Subtotal */}
-                          <div className="flex justify-between text-xs text-gray-500 mb-1">
-                              <span>Item Total</span>
-                              <span>₹{subTotal}</span>
-                          </div>
+                              {/* GST */}
+                              <div className="flex justify-between text-xs text-gray-400">
+                                  <span>GST (5%)</span>
+                                  <span>+ ₹{tax}</span>
+                              </div>
 
-                          {/* GST */}
-                          <div className="flex justify-between text-xs text-gray-400 mb-2">
-                              <span>GST (5%)</span>
-                              <span>+ ₹{taxAmount}</span>
+                              {/* ✅ DISCOUNT ROW (Conditional) */}
+                              {discount > 0 && (
+                                  <div className="flex justify-between text-xs text-green-400 font-bold bg-green-900/10 px-2 py-1 rounded">
+                                      <span className="flex items-center gap-1"><Percent size={10}/> Discount</span>
+                                      <span>- ₹{discount}</span>
+                                  </div>
+                              )}
                           </div>
 
                           {/* Final Total */}
-                          <div className="flex justify-between items-end border-t border-white/10 pt-2">
-                              <span className="text-sm font-bold text-gray-200">Total</span>
-                              <span className="text-xl font-bold text-yellow-500">₹{finalAmount}</span>
+                          <div className="flex justify-between items-end border-t border-white/10 pt-3 mt-3">
+                              <span className="text-sm font-bold text-gray-200">Grand Total</span>
+                              <span className="text-xl font-bold text-yellow-500 font-cinzel">₹{final}</span>
                           </div>
                       </div>
+
                   </div>
               </div>
             </div>

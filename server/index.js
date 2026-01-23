@@ -23,7 +23,7 @@ import menuRouter from './routes/menu.route.js';
 import cartRouter from './routes/cart.route.js';
 import couponRouter from './routes/coupoun.route.js'; 
 import orderRouter from './routes/order.route.js';
-import dashRouter from './routes/dashboard.router.js';
+// import dashRouter from './routes/dashboard.router.js';
 
 dotenv.config();
 const app = express();
@@ -65,7 +65,7 @@ app.use(`${apiPrefix}/menu`, menuRouter);
 app.use(`${apiPrefix}/cart`, cartRouter);
 app.use(`${apiPrefix}/coupons`, couponRouter);
 app.use(`${apiPrefix}/orders`, orderRouter);
-app.use(`${apiPrefix}/dashboard`, dashRouter);
+// app.use(`${apiPrefix}/dashboard`, dashRouter);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

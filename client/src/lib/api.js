@@ -1,21 +1,28 @@
 import axios from 'axios';
 
-// Backend URL update kiya hai (v1 versioning ke sath)
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api/v1', 
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1',
+  withCredentials: true,
 });
 
-// REQUEST INTERCEPTOR (Hybrid Auth Logic)
+// 1. REQUEST INTERCEPTOR
 api.interceptors.request.use((config) => {
   const userToken = localStorage.getItem('accessToken');
-  const sessionToken = localStorage.getItem('sessionToken'); // Guest Token
+  let sessionToken = localStorage.getItem('sessionToken');
 
-  // 1. Agar User Login hai -> Send Bearer Token
+  // User Token (Admin/Customer)
   if (userToken) {
     config.headers.Authorization = `Bearer ${userToken}`;
   } 
-  // 2. Agar User Login nahi hai, par Guest Session hai -> Send Custom Header
-  else if (sessionToken) {
+  
+  // Guest Token (Generate only if not logged in)
+  if (!userToken && !sessionToken) {
+      sessionToken = `guest-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem('sessionToken', sessionToken);
+  }
+
+  // Session Token (Always send for cart continuity)
+  if (sessionToken) {
     config.headers['x-session-token'] = sessionToken;
   }
 
@@ -24,38 +31,54 @@ api.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
-// RESPONSE INTERCEPTOR (Token Refresh Logic)
+// 2. RESPONSE INTERCEPTOR (Auto Logout Logic)
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    // Login/Refresh page par error aaye to intercept mat karo
+    if (originalRequest.url.includes('/auth/login') || originalRequest.url.includes('/auth/refresh-token')) {
+        return Promise.reject(error);
+    }
     
-    // Agar 401 aaya (Unauthorized) aur yeh pehli baar hai
+    // Agar 401 (Unauthorized) hai aur retry nahi kiya hai
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (refreshToken) {
-           const response = await axios.post(
-             'http://localhost:3000/api/v1/auth/refresh',
-             { refreshToken }
-           );
-           
-           const newAccessToken = response.data.accessToken;
-           localStorage.setItem('accessToken', newAccessToken);
-           
-           // Retry original request with new token
-           originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
-           return api(originalRequest);
+        const storedRefreshToken = localStorage.getItem('refreshToken');
+        
+        if (!storedRefreshToken) {
+             throw new Error("No refresh token found");
         }
-      } catch (error) {
-        console.log("Session expired, please login again", error);
-        // Logout logic here (Clear local storage)
-        localStorage.clear();
-        window.location.href = '/login'; 
+
+        // Call Refresh API
+        const { data } = await axios.post(
+          `${api.defaults.baseURL}/auth/refresh-token`,
+          { refreshToken: storedRefreshToken }
+        );
+        
+        // Success
+        const newAccessToken = data.accessToken;
+        localStorage.setItem('accessToken', newAccessToken);
+        
+        // Retry Original Request
+        originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+        return api(originalRequest);
+
+      } catch (refreshError) {
+        // 🚨 FINAL LOGOUT: Agar Refresh bhi fail hua, to sab saaf karo
+        console.error("Session expired completely. Logging out...");
+        
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        localStorage.removeItem('role');
+        // Note: 'sessionToken' mat udao, taaki wo Guest ban sake agar chahe to
+        
+        window.location.href = '/login'; // Force Redirect
+        return Promise.reject(refreshError);
       }
     }
     return Promise.reject(error);

@@ -2,26 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
-import api from '../lib/api'; // Custom API instance
+import api from '../lib/api'; 
 import { getCart, resetCart } from '../redux/cartSlice';
 import { 
-  Wallet, 
-  User, 
-  FileText, 
-  CheckCircle,
-  Loader2,
-  UtensilsCrossed,
-  Tag,
-  X
+  Wallet, User, CheckCircle, Loader2, 
+  UtensilsCrossed, X, Armchair 
 } from 'lucide-react';
 
-// Helper: Load Razorpay Script dynamically
+// 
+
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
-    if (window.Razorpay) {
-        resolve(true);
-        return;
-    }
+    if (window.Razorpay) { resolve(true); return; }
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
@@ -36,394 +28,345 @@ const Checkout = () => {
   const dispatch = useDispatch();
   const toast = useToast();
 
-  // Redux State
   const { items, totalCartPrice } = useSelector((state) => state.cart);
-  const { name, email, contact } = useSelector((state) => state.auth);
+  const { name, email, contact, userId } = useSelector((state) => state.auth);
 
   const [loading, setLoading] = useState(false);
-  const [couponLoading, setCouponLoading] = useState(false); // For Apply Button
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [tables, setTables] = useState([]); 
   
-  // Coupon States
   const [discount, setDiscount] = useState(0);
-  const [appliedCoupon, setAppliedCoupon] = useState(null); // Stores the code if valid
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
 
   const [formData, setFormData] = useState({
     customerName: name || '',
     customerEmail: email || '',
     customerPhone: contact || '', 
-    tableNumber: '',
+    tableNumber: '', 
     notes: '',
     couponCode: '',
     paymentMethod: 'cash' 
   });
 
-  // Calculate Finals
+  // Calculations (Display purpose only, backend will recalculate)
   const gstAmount = Math.round(totalCartPrice * 0.05);
-  // Grand Total = Items + GST - Discount
   const grandTotal = Math.max(0, totalCartPrice + gstAmount - discount);
 
-  // Load cart if missing
+  const myIdentity = userId || localStorage.getItem("sessionToken");
+
+  // 1. Fetch Cart & Tables
   useEffect(() => {
-    if (items.length === 0) {
-      dispatch(getCart());
-    }
+    if (items.length === 0) dispatch(getCart());
+    
+    const fetchTables = async () => {
+        try {
+            const res = await api.get('/tables'); // Ensure this route exists
+            if(res.data.success) {
+                setTables(res.data.data.filter(t => t.isActive));
+            }
+        } catch (err) { console.error(err,"Failed to load tables"); }
+    };
+    fetchTables();
   }, [dispatch, items.length]);
 
-  // Handle Input Change
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // --- 1. HANDLE COUPON APPLY ---
+  // 2. Apply Coupon
   const handleApplyCoupon = async () => {
-    if (!formData.couponCode) return toast.error("Please enter a coupon code");
-
+    if (!formData.couponCode) return toast.error("Enter coupon code");
     setCouponLoading(true);
     try {
         const res = await api.post('/coupons/verify', {
             code: formData.couponCode,
-            cartTotal: totalCartPrice // Send Item Total to check min order amount
+            cartTotal: totalCartPrice 
         });
-
         if (res.data.success) {
             setDiscount(res.data.discountAmount);
             setAppliedCoupon(res.data.code);
-            toast.success(`Coupon Applied! You saved ₹${res.data.discountAmount}`);
+            toast.success(`Applied! Saved ₹${res.data.discountAmount}`);
         }
     } catch (error) {
         setDiscount(0);
         setAppliedCoupon(null);
-        toast.error(error.response?.data?.message || "Invalid Coupon Code");
-    } finally {
-        setCouponLoading(false);
-    }
+        toast.error(error.response?.data?.message || "Invalid Coupon");
+    } finally { setCouponLoading(false); }
   };
 
-  const handleRemoveCoupon = () => {
-      setDiscount(0);
-      setAppliedCoupon(null);
-      setFormData({...formData, couponCode: ''});
-      toast.info("Coupon Removed");
-  };
-
-  // --- 2. HANDLE ORDER SUBMISSION ---
+  // 3. Place Order (Main Function)
   const handlePlaceOrder = async () => {
-    if (!formData.tableNumber) {
-        return toast.error("Please enter Table Number");
-    }
-    if (!formData.customerPhone) {
-        return toast.error("Contact number is required");
-    }
+
+    if (!formData.tableNumber) return toast.error("Please select a Table");
+
+    if (!formData.customerPhone) return toast.error("Contact number is required");
+
+
 
     setLoading(true);
 
     try {
+
         const orderPayload = {
+
             ...formData,
+
             tableNumber: Number(formData.tableNumber),
-            couponCode: appliedCoupon || null // Ensure we send valid code
+
+            couponCode: discount > 0 ? appliedCoupon : null
+
         };
 
-        // API Call: Create Order
+
+
         const response = await api.post('/orders/orders', orderPayload);
+
         const { success, data } = response.data;
 
+
+
         if (success) {
-            // CASE A: CASH
+
             if (formData.paymentMethod === 'cash') {
-                toast.success("Order Placed Successfully! 🍲");
+
+                toast.success("Order Placed! 🍲");
+
                 dispatch(resetCart());
+
                 navigate('/order-success', { state: { orderId: data.orderNumber } });
-            } 
-            // CASE B: RAZORPAY
-            else if (formData.paymentMethod === 'razorpay') {
-                await handleRazorpayPayment(data);
+
             }
+
+            else if (formData.paymentMethod === 'razorpay') {
+
+                await handleRazorpayPayment(data);
+
+            }
+
         }
 
     } catch (error) {
-        console.error("Order Error:", error);
+
         toast.error(error.response?.data?.message || "Failed to place order");
+
         setLoading(false);
+
     }
+
   };
 
-  // --- 3. HANDLE RAZORPAY PAYMENT ---
+
+
   const handleRazorpayPayment = async (backendResponse) => {
+
       const isScriptLoaded = await loadRazorpayScript();
+
       if (!isScriptLoaded) {
-          toast.error("Razorpay SDK failed to load. Check internet.");
-          setLoading(false);
-          return;
+
+          setLoading(false); return toast.error("Payment SDK failed");
+
       }
+
+
 
       const { razorPayDetails, order } = backendResponse;
 
       const options = {
-          key: razorPayDetails.key, 
-          amount: razorPayDetails.amount, 
+
+          key: razorPayDetails.key,
+
+          amount: razorPayDetails.amount,
+
           currency: razorPayDetails.currency,
+
           name: "SavoryBites",
-          description: `Table ${formData.tableNumber} - Order Payment`,
-          order_id: razorPayDetails.id, 
-          
+
+          description: `Order #${order.orderNumber}`,
+
+          order_id: razorPayDetails.id,
+
           handler: async function (response) {
+
               try {
-                  toast.info("Verifying Payment...");
+
+                  toast.info("Verifying...");
+
                   const verifyRes = await api.post('/orders/verify-payment', {
+
                       razorPayOrderId: response.razorpay_order_id,
+
                       razorPayPaymentId: response.razorpay_payment_id,
+
                       razorPaySignature: response.razorpay_signature
+
                   });
 
                   if (verifyRes.data.success) {
-                      toast.success("Payment Verified! Order Confirmed.");
+
+                      toast.success("Paid Successfully!");
+
                       dispatch(resetCart());
+
                       navigate('/order-success', { state: { orderId: order.orderNumber } });
-                  } else {
-                      toast.error("Payment Verification Failed");
+
                   }
-              } catch (error) {
-                  toast.error(error,"Server Verification Failed");
-              } finally {
-                  setLoading(false);
-              }
+
+              } catch (error) { toast.error(error, "Verification Failed"); }
+
+              finally { setLoading(false); }
+
           },
-          
-          prefill: {
-              name: formData.customerName,
-              email: formData.customerEmail,
-              contact: formData.customerPhone,
-          },
+
           theme: { color: "#D4AF37" },
-          modal: {
-              ondismiss: function() {
-                  setLoading(false);
-                  toast.warning("Payment Cancelled");
-              }
-          }
+
+          modal: { ondismiss: function() { setLoading(false); toast.warning("Payment Cancelled"); } }
+
       };
 
       const rzp = new window.Razorpay(options);
+
       rzp.open();
+
   };
 
-  if (items.length === 0) {
-      return (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center text-white">
-            <p className="text-xl mb-4 font-cinzel">Your cart is empty.</p>
-            <button onClick={() => navigate('/')} className="text-yellow-500 hover:underline">Go to Menu</button>
-        </div>
-      );
-  }
+  if (items.length === 0) return <div className="text-white text-center pt-20">Cart Empty</div>;
 
   return (
-    <>
-      <style>
-        {`
-          .gold-text { color: #D4AF37; }
-          .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-          .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-        `}
-      </style>
-
-      <div className="max-w-7xl mx-auto pb-20 px-4 pt-6">
-        <div className="flex items-center gap-3 mb-8">
-            <div className="p-2 bg-yellow-900/20 rounded-full border border-yellow-600/30">
-                <FileText className="w-6 h-6 gold-text" />
-            </div>
-            <h1 className="text-3xl font-cinzel font-bold text-white">Finalize Order</h1>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            {/* LEFT COLUMN: FORM */}
-            <div className="lg:col-span-2 space-y-6">
-                
-                {/* 1. Customer Details */}
-                <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-6">
-                    <h3 className="text-lg font-cinzel font-bold text-white mb-4 flex items-center gap-2">
-                        <User className="w-4 h-4 gold-text" /> Guest Details
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-xs text-gray-500 uppercase tracking-widest block mb-2">Full Name</label>
-                            <input 
-                                type="text" name="customerName" value={formData.customerName} onChange={handleChange} placeholder="Enter Name"
-                                className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-yellow-500/50 focus:outline-none transition-colors"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs text-gray-500 uppercase tracking-widest block mb-2">Phone Number *</label>
-                            <input 
-                                type="tel" name="customerPhone" value={formData.customerPhone} onChange={handleChange} placeholder="Required"
-                                className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-yellow-500/50 focus:outline-none transition-colors"
-                            />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="text-xs text-gray-500 uppercase tracking-widest block mb-2">Email (Optional)</label>
-                            <input 
-                                type="email" name="customerEmail" value={formData.customerEmail} onChange={handleChange} placeholder="For receipt"
-                                className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-yellow-500/50 focus:outline-none transition-colors"
-                            />
-                        </div>
-                    </div>
-                </section>
-
-                {/* 2. Dining Details */}
-                <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-6">
-                    <h3 className="text-lg font-cinzel font-bold text-white mb-4 flex items-center gap-2">
-                        <UtensilsCrossed className="w-4 h-4 gold-text" /> Dining Info
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-xs text-gray-500 uppercase tracking-widest block mb-2">Table Number *</label>
-                            <input 
-                                type="number" name="tableNumber" value={formData.tableNumber} onChange={handleChange} placeholder="Check table stand"
-                                className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-yellow-500/50 focus:outline-none transition-colors"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs text-gray-500 uppercase tracking-widest block mb-2">Chef Notes</label>
-                            <input 
-                                type="text" name="notes" value={formData.notes} onChange={handleChange} placeholder="Less spicy, No onions..."
-                                className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-yellow-500/50 focus:outline-none transition-colors"
-                            />
-                        </div>
-                    </div>
-                </section>
-
-                {/* 3. Payment Method */}
-                <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-6">
-                    <h3 className="text-lg font-cinzel font-bold text-white mb-4 flex items-center gap-2">
-                        <Wallet className="w-4 h-4 gold-text" /> Payment Method
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Cash Option */}
-                        <label className={`cursor-pointer border rounded-xl p-4 flex items-center gap-4 transition-all ${formData.paymentMethod === 'cash' ? 'bg-yellow-900/20 border-yellow-500/50' : 'border-white/10 hover:border-white/30'}`}>
-                            <input type="radio" name="paymentMethod" value="cash" checked={formData.paymentMethod === 'cash'} onChange={handleChange} className="accent-yellow-500 w-5 h-5" />
-                            <div>
-                                <span className="font-bold text-white block">Pay at Counter</span>
-                                <span className="text-xs text-gray-400">Cash / Card after meal</span>
-                            </div>
-                        </label>
-                        {/* Razorpay Option */}
-                        <label className={`cursor-pointer border rounded-xl p-4 flex items-center gap-4 transition-all ${formData.paymentMethod === 'razorpay' ? 'bg-yellow-900/20 border-yellow-500/50' : 'border-white/10 hover:border-white/30'}`}>
-                            <input type="radio" name="paymentMethod" value="razorpay" checked={formData.paymentMethod === 'razorpay'} onChange={handleChange} className="accent-yellow-500 w-5 h-5" />
-                            <div>
-                                <span className="font-bold text-white block">Pay Online</span>
-                                <span className="text-xs text-gray-400">UPI, Netbanking, Cards</span>
-                            </div>
-                        </label>
-                    </div>
-                </section>
-            </div>
-
-            {/* RIGHT COLUMN: SUMMARY */}
-            <div className="lg:col-span-1">
-                <div className="bg-[#0a0a0a]/80 border border-yellow-600/20 rounded-xl p-6 sticky top-24 shadow-2xl">
-                    <h3 className="text-xl font-cinzel font-bold text-white mb-6 border-b border-white/10 pb-4">
-                        Bill Summary
-                    </h3>
-
-                    {/* Items List */}
-                    <div className="space-y-3 mb-6 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
-                        {items.map(item => (
-                            <div key={item.menuItemId} className="flex justify-between text-sm">
-                                <span className="text-gray-400">{item.quantity} x {item.name}</span>
-                                <span className="text-white font-medium">₹{item.total}</span>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Calculation */}
-                    <div className="space-y-3 border-t border-white/10 pt-4 mb-6">
-                        <div className="flex justify-between text-gray-400 text-sm">
-                            <span>Item Total</span>
-                            <span>₹{totalCartPrice}</span>
-                        </div>
-                        <div className="flex justify-between text-gray-400 text-sm">
-                            <span>GST (5%)</span>
-                            <span>+ ₹{gstAmount}</span>
-                        </div>
-                        
-                        {/* Discount Row (Conditional) */}
-                        {discount > 0 && (
-                            <div className="flex justify-between text-green-500 text-sm font-bold">
-                                <span>Discount ({appliedCoupon})</span>
-                                <span>- ₹{discount}</span>
-                            </div>
-                        )}
-
-                        {/* Coupon Input */}
-                        <div className="pt-2">
-                            {!appliedCoupon ? (
-                                <div className="flex gap-2">
-                                    <div className="relative flex-1">
-                                        <Tag className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
-                                        <input 
-                                            type="text"
-                                            name="couponCode"
-                                            value={formData.couponCode}
-                                            onChange={handleChange}
-                                            placeholder="COUPON CODE"
-                                            className="w-full bg-black border border-white/20 rounded px-3 py-2 pl-9 text-xs text-white focus:outline-none uppercase focus:border-yellow-500"
-                                        />
-                                    </div>
-                                    <button 
-                                        onClick={handleApplyCoupon} 
-                                        disabled={couponLoading || !formData.couponCode}
-                                        className="text-xs font-bold bg-gray-800 text-yellow-500 px-3 rounded border border-gray-700 hover:bg-gray-700 disabled:opacity-50"
-                                    >
-                                        {couponLoading ? '...' : 'APPLY'}
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="flex justify-between items-center bg-green-900/20 border border-green-500/30 p-2 rounded">
-                                    <span className="text-xs text-green-400 font-bold flex items-center gap-1">
-                                        <CheckCircle size={14} /> Coupon Applied
-                                    </span>
-                                    <button onClick={handleRemoveCoupon} className="text-gray-400 hover:text-white">
-                                        <X size={16} />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Total */}
-                    <div className="flex justify-between items-end border-t border-dashed border-yellow-600/30 py-4 mb-6">
-                        <span className="text-gray-300 font-bold">Grand Total</span>
-                        <span className="text-2xl font-bold text-yellow-500">₹{grandTotal}</span>
-                    </div>
-
-                    {/* Checkout Button */}
-                    <button 
-                        onClick={handlePlaceOrder}
-                        disabled={loading}
-                        className="w-full py-4 bg-gradient-to-r from-yellow-600 to-yellow-500 text-black font-bold rounded-lg shadow-lg hover:shadow-yellow-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                    >
-                        {loading ? (
-                            <>
-                                <Loader2 className="w-5 h-5 animate-spin" /> Processing...
-                            </>
-                        ) : (
-                            <>
-                                <CheckCircle className="w-5 h-5" /> 
-                                {formData.paymentMethod === 'razorpay' ? `Pay ₹${grandTotal}` : `Confirm Order (₹${grandTotal})`}
-                            </>
-                        )}
-                    </button>
-
-                    <p className="text-[10px] text-center text-gray-500 mt-4">
-                        Secure checkout powered by SavoryBites
-                    </p>
+    <div className="max-w-7xl mx-auto pb-20 px-4 pt-6">
+       <h1 className="text-3xl font-cinzel font-bold text-white mb-8">Finalize Order</h1>
+       
+       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* LEFT: Forms */}
+          <div className="lg:col-span-2 space-y-6">
+             
+             {/* Guest Details */}
+             <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-6">
+                <h3 className="text-lg font-bold text-white mb-4 flex gap-2"><User className="text-yellow-500"/> Guest Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <input name="customerName" value={formData.customerName} onChange={handleChange} placeholder="Name" className="bg-black/50 border border-white/10 rounded-lg p-3 text-white" />
+                   <input name="customerPhone" value={formData.customerPhone} onChange={handleChange} placeholder="Phone *" className="bg-black/50 border border-white/10 rounded-lg p-3 text-white" />
+                   <input name="customerEmail" value={formData.customerEmail} onChange={handleChange} placeholder="Email (Optional)" className="bg-black/50 border border-white/10 rounded-lg p-3 text-white col-span-2" />
                 </div>
-            </div>
+             </section>
 
-        </div>
-      </div>
-    </>
+             {/* Dining Info (Table Select) */}
+             <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-6">
+                <h3 className="text-lg font-bold text-white mb-4 flex gap-2"><UtensilsCrossed className="text-yellow-500"/> Dining Info</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   
+                   {/* TABLE DROPDOWN */}
+                   <div className="relative">
+                      <label className="text-xs text-gray-500 uppercase block mb-2">Select Table *</label>
+                      <div className="relative">
+                        <Armchair className="absolute left-3 top-3 text-gray-500 w-5 h-5"/>
+                        <select 
+                            name="tableNumber" 
+                            value={formData.tableNumber} 
+                            onChange={handleChange}
+                            className="w-full bg-black/50 border border-white/10 rounded-lg p-3 pl-10 text-white appearance-none focus:border-yellow-500 outline-none cursor-pointer"
+                        >
+                            <option value="">-- Choose Table --</option>
+                            {tables.map(table => {
+                                // Logic: Available OR Owned by Me (Session match)
+                                // Note: Ensure backend sends 'currentOwner' in table response
+                                const isMyTable = table.isOccupied && table.currentOwner === myIdentity;
+                                const isSelectable = !table.isOccupied || isMyTable;
+
+                                let label = `Table ${table.tableNumber} (${table.capacity} Seats)`;
+                                if (isMyTable) label += " - (Your Table)";
+                                else if (table.isOccupied) label += " - Occupied";
+
+                                return (
+                                    <option 
+                                        key={table._id} 
+                                        value={table.tableNumber}
+                                        disabled={!isSelectable}
+                                        className={!isSelectable ? "text-gray-500 bg-gray-900" : "text-white bg-black"}
+                                    >
+                                        {label}
+                                    </option>
+                                );
+                            })}
+                        </select>
+                      </div>
+                   </div>
+
+                   <div>
+                      <label className="text-xs text-gray-500 uppercase block mb-2">Notes</label>
+                      <input name="notes" value={formData.notes} onChange={handleChange} placeholder="Less spicy..." className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white" />
+                   </div>
+                </div>
+             </section>
+
+             {/* Payment Method */}
+             <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-6">
+                <h3 className="text-lg font-bold text-white mb-4 flex gap-2"><Wallet className="text-yellow-500"/> Payment</h3>
+                <div className="grid grid-cols-2 gap-4">
+                   <label className={`cursor-pointer border rounded-xl p-4 flex gap-3 ${formData.paymentMethod === 'cash' ? 'bg-yellow-900/20 border-yellow-500' : 'border-white/10'}`}>
+                      <input type="radio" name="paymentMethod" value="cash" checked={formData.paymentMethod === 'cash'} onChange={handleChange} className="accent-yellow-500" />
+                      <span className="text-white font-bold">Cash</span>
+                   </label>
+                   <label className={`cursor-pointer border rounded-xl p-4 flex gap-3 ${formData.paymentMethod === 'razorpay' ? 'bg-yellow-900/20 border-yellow-500' : 'border-white/10'}`}>
+                      <input type="radio" name="paymentMethod" value="razorpay" checked={formData.paymentMethod === 'razorpay'} onChange={handleChange} className="accent-yellow-500" />
+                      <span className="text-white font-bold">Online</span>
+                   </label>
+                </div>
+             </section>
+          </div>
+
+          {/* RIGHT: Bill */}
+          <div className="lg:col-span-1">
+              <div className="bg-[#0a0a0a]/80 border border-yellow-600/20 rounded-xl p-6 sticky top-24">
+                 <h3 className="text-xl font-cinzel font-bold text-white mb-4 border-b border-white/10 pb-4">Bill Summary</h3>
+                 
+                 {/* Items */}
+                 <div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
+                    {items.map(i => (
+                       <div key={i.menuItemId} className="flex justify-between text-sm text-gray-400">
+                          <span>{i.quantity}x {i.name}</span>
+                          <span className="text-white">₹{i.total}</span>
+                       </div>
+                    ))}
+                 </div>
+
+                 {/* Pricing */}
+                 <div className="space-y-2 border-t border-white/10 pt-4 mb-4">
+                    <div className="flex justify-between text-gray-400 text-sm"><span>Item Total</span><span>₹{totalCartPrice}</span></div>
+                    <div className="flex justify-between text-gray-400 text-sm"><span>GST (5%)</span><span>+ ₹{gstAmount}</span></div>
+                    {discount > 0 && (
+                       <div className="flex justify-between text-green-500 text-sm font-bold">
+                          <span>Discount ({appliedCoupon})</span><span>- ₹{discount}</span>
+                       </div>
+                    )}
+                 </div>
+
+                 {/* Coupon Input */}
+                 {!appliedCoupon ? (
+                    <div className="flex gap-2 mb-4">
+                       <input name="couponCode" value={formData.couponCode} onChange={handleChange} placeholder="COUPON CODE" className="flex-1 bg-black border border-white/20 rounded p-2 text-xs text-white uppercase" />
+                       <button onClick={handleApplyCoupon} disabled={couponLoading} className="bg-gray-800 text-yellow-500 px-3 rounded text-xs font-bold border border-gray-700">APPLY</button>
+                    </div>
+                 ) : (
+                    <div className="flex justify-between items-center bg-green-900/20 border border-green-500/30 p-2 rounded mb-4">
+                       <span className="text-xs text-green-400 font-bold flex gap-1"><CheckCircle size={14}/> Applied</span>
+                       <button onClick={() => {setDiscount(0); setAppliedCoupon(null); setFormData({...formData, couponCode:''})}}><X size={16} className="text-gray-400"/></button>
+                    </div>
+                 )}
+
+                 <div className="flex justify-between items-end border-t border-dashed border-yellow-600/30 py-4 mb-4">
+                    <span className="text-gray-300 font-bold">Grand Total</span>
+                    <span className="text-2xl font-bold text-yellow-500">₹{grandTotal}</span>
+                 </div>
+
+                 <button onClick={handlePlaceOrder} disabled={loading} className="w-full py-4 bg-yellow-600 hover:bg-yellow-500 text-black font-bold rounded-lg flex justify-center gap-2 transition-all">
+                    {loading ? <Loader2 className="animate-spin" /> : (formData.paymentMethod === 'razorpay' ? `Pay ₹${grandTotal}` : 'Confirm Order')}
+                 </button>
+              </div>
+          </div>
+
+       </div>
+    </div>
   );
 };
 

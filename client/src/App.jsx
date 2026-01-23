@@ -28,6 +28,8 @@ import AuthenticatedLayout from "./Component/AuthenticatedLayout"; // Customer L
 import AdminLayout from "./Component/AdminLayout"; // Admin Layout
 import AdminMenu from "./pages/admin/AdminMenu";
 import AdminOrders from "./pages/admin/AdminOrders";
+import SendOtp from "./pages/SendOtp";
+import ResetPassword from "./pages/ResetPassword";
 
 const App = () => {
   return (
@@ -65,6 +67,9 @@ const App = () => {
               </OpenRoutes>
             }
           />
+
+          <Route path="/send-otp" element={<SendOtp />} />
+          <Route path="/verify-otp" element={<ResetPassword />} />
 
           {/* =========================================
               2. CUSTOMER ROUTES (Header + Footer)

@@ -75,3 +75,16 @@ export const deleteTable = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+
+export const freeTable = async (req, res) => {
+    try {
+        await Table.findByIdAndUpdate(req.params.id, { 
+            isOccupied: false, 
+            currentOwner: null // ✅ Reset owner
+        });
+        res.status(200).json({ success: true, message: "Table is now available" });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};

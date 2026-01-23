@@ -1,56 +1,28 @@
 import mongoose from "mongoose";
-const couponSchema = new mongoose.Schema({
-  code: {
-    type: String,
-  },
 
+const couponSchema = new mongoose.Schema({
+  code: { type: String, required: true, unique: true, uppercase: true }, // Ensure unique & uppercase
   discountType: {
     type: String,
-    enum: ["percentage", "fixedAmount"],   ////dropdown percentage , fixed amount  20% Rs50
+    enum: ["percentage", "fixedAmount"],
+    required: true,
   },
+  discountValue: { type: Number, required: true }, // Value is mandatory
+  maxDiscount: { type: Number, default: null }, // Nullable
 
-  maxDiscount: {
-    type: Number,
+  validFrom: { type: Date, required: true },
+  validTo: { type: Date, required: true },
 
-  },
-  validFrom: {
-    type: Date,
-  },
-  validTo: {
-    type: Date,
-  },
+  minOrderAmount: { type: Number, default: 0 }, // ✅ Default 0 to prevent undefined error
 
-  minorderAmount: {
-    type: Number, //1000
-  }, // cart fetch -> minOrderAmount > 1000 then only coupouns are availabel,
+  isActive: { type: Boolean, default: true },
+  isFirstOrder: { type: Boolean, default: false }, // Boolean default false
 
-  isActive: {
-    type: Boolean,
-    default: true,
-  },
+  usageLimit: { type: Number, default: null }, // Null means unlimited
+  usedCount: { type: Number, default: 0 }, // Start with 0
 
-  isFirstOrder: {
-    type: Boolean,
-    default : null
-  }, //users => totalOrders =>
-
-  usageLimit: {
-    type: Number,
-  },
-
-  usedCount: {
-    type: Number,
-  },
-  discountValue: {
-    type: Number,
-  },
-
-  description: {
-    type: String,
-  },
+  description: { type: String },
 });
 
-
-const Coupon = mongoose.model("Coupoun", couponSchema);
-
+const Coupon = mongoose.model("Coupon", couponSchema); // Fixed typo 'Coupoun' -> 'Coupon'
 export default Coupon;

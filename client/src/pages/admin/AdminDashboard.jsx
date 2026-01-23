@@ -11,7 +11,9 @@ const AdminDashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await api.get('/dashboard/stats');
+        const res = await api.get('/orders/admin/stats');
+        console.log("FULL API RESPONSE:", res.data); 
+        console.log("MENU COUNT:", res.data?.stats?.totalMenu);
         setData(res.data);
       } catch (error) {
         console.error("Failed to fetch dashboard stats", error);
@@ -35,7 +37,7 @@ const AdminDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Total Orders" value={data?.stats?.totalOrders} icon={<ShoppingBag />} color="text-blue-400" />
         <StatCard title="Revenue" value={`₹${data?.stats?.totalRevenue}`} icon={<Wallet />} color="text-yellow-400" />
-        <StatCard title="Menu Items" value={data?.stats?.totalMenu} icon={<BookOpen />} color="text-purple-400" />
+        <StatCard title="Menu Items" value={data?.stats?.totalMenu || 0} icon={<BookOpen />} color="text-purple-400" />
         <StatCard title="Active Tables" value={data?.stats?.activeTables} icon={<Users />} color="text-green-400" />
       </div>
 
@@ -60,7 +62,7 @@ const AdminDashboard = () => {
                 </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800">
-                {data?.recentOrders?.map((order) => (
+                {data?.stats?.recentOrders?.map((order) => (
                     <tr key={order._id} className="hover:bg-white/5 transition-colors">
                     <td className="py-4 pl-2 text-yellow-500 font-mono">#{order.orderNumber}</td>
                     <td className="py-4">

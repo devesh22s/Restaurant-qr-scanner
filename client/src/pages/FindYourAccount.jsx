@@ -1,8 +1,39 @@
-import React from 'react';
-import { Mail, Search, ArrowLeft } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Mail, Search, ArrowLeft, Loader2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import api from '../lib/api'; // ✅ API Import kiya
+import { useToast } from '../context/ToastContext'; // ✅ Toast Notification
 
 function FindYourAccount() {
+  // 1. States & Hooks
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const toast = useToast();
+
+  // 2. Handle Form Submit
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!email) return toast.error("Please enter email");
+
+    setLoading(true);
+    try {
+        // ✅ Backend se user search karo
+        const res = await api.post('/auth/search', { email });
+        
+        if (res.data.success) {
+            toast.success("Account Found!");
+            // ✅ Next Page par bhejo (OTP ya Reset Password page par)
+            // Hum user ka data 'state' ke through bhej rahe hain taaki agle page ko pata ho kiska password reset karna hai
+            navigate('/send-otp', { state: { email: email, userData: res.data.data } });
+        }
+    } catch (error) {
+        toast.error(error.response?.data?.message || "No account found with this email");
+    } finally {
+        setLoading(false);
+    }
+  };
+
   return (
     <>
       <style>
@@ -29,14 +60,14 @@ function FindYourAccount() {
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')] opacity-20 pointer-events-none mix-blend-overlay"></div>
 
         <div className='w-full max-w-[450px] relative z-10'>
-             
-             {/* Decorative Top Icon */}
-             <div className="flex justify-center -mb-8 relative z-20">
-                 <div className="bg-[#020202] p-2 rounded-full border border-yellow-800/30 shadow-[0_0_20px_rgba(212,175,55,0.15)]">
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-yellow-700 via-yellow-500 to-yellow-800 flex items-center justify-center shadow-inner">
-                       <Search className="w-7 h-7 text-[#1a0f00]" />
-                    </div>
-                 </div>
+              
+              {/* Decorative Top Icon */}
+              <div className="flex justify-center -mb-8 relative z-20">
+                  <div className="bg-[#020202] p-2 rounded-full border border-yellow-800/30 shadow-[0_0_20px_rgba(212,175,55,0.15)]">
+                     <div className="w-14 h-14 rounded-full bg-gradient-to-br from-yellow-700 via-yellow-500 to-yellow-800 flex items-center justify-center shadow-inner">
+                        <Search className="w-7 h-7 text-[#1a0f00]" />
+                     </div>
+                  </div>
               </div>
 
             {/* Card Container */}
@@ -56,7 +87,7 @@ function FindYourAccount() {
                 </div>
 
                 {/* Form */}
-                <form className='space-y-6'>
+                <form onSubmit={handleSearch} className='space-y-6'>
                     <div className='space-y-1.5'>
                         <label htmlFor="email" className="text-xs text-yellow-600/80 uppercase tracking-widest font-semibold ml-1">
                           Email Address
@@ -67,6 +98,8 @@ function FindYourAccount() {
                                 type="email"
                                 id="email"
                                 name="email"
+                                value={email} // ✅ State binding
+                                onChange={(e) => setEmail(e.target.value)} // ✅ Handle Change
                                 required
                                 className="w-full bg-[#0a0a0a] border border-white/10 text-yellow-50 placeholder-gray-600 text-sm rounded-lg pl-12 pr-4 py-3.5 focus:outline-none focus:border-yellow-500/50 focus:ring-1 focus:ring-yellow-500/50 transition-all shadow-inner"
                                 placeholder="example@gmail.com"
@@ -75,15 +108,26 @@ function FindYourAccount() {
                     </div>
 
                     <button 
+                        type="submit" // ✅ Type submit zaroori hai
+                        disabled={loading} // ✅ Disable when loading
                         className="group relative w-full py-3.5 bg-gradient-to-r from-[#BF953F] via-[#FCF6BA] to-[#B38728] text-[#291d0a] font-bold rounded-lg shadow-[0_5px_15px_rgba(0,0,0,0.5)] overflow-hidden flex items-center justify-center transition-transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
                     >
-                         {/* Button Shine Effect */}
-                         <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out skew-y-12"></div>
-                         
-                         <div className="relative flex items-center gap-2">
-                             <Search className="w-4 h-4 stroke-[2.5]" />
-                             <span className="font-cinzel tracking-wide text-sm font-bold">Search Account</span>
-                         </div>
+                          {/* Button Shine Effect */}
+                          <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out skew-y-12"></div>
+                          
+                          <div className="relative flex items-center gap-2">
+                             {loading ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  <span className="font-cinzel tracking-wide text-sm font-bold">Searching...</span>
+                                </>
+                             ) : (
+                                <>
+                                  <Search className="w-4 h-4 stroke-[2.5]" />
+                                  <span className="font-cinzel tracking-wide text-sm font-bold">Search Account</span>
+                                </>
+                             )}
+                          </div>
                     </button>
                 </form>
 

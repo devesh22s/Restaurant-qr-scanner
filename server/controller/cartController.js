@@ -1,5 +1,6 @@
 import Cart from "../model/cart.js";
 import Menu from "../model/menu.js";
+import Session from "../model/Session.js"; // ✅ Import Session Model
 import { SuccessResponse, ErrorResponse } from "../utils/responseWrapper.js";
 
 // === HELPER 1: Calculate Total Price ===
@@ -14,13 +15,12 @@ const calculateTotal = async (items) => {
     return total;
 };
 
-// === HELPER 2: Standardize Response (Fixes NaN Issue) ===
-// Yeh function cart ko populate karega aur frontend ke liye clean data banayega
+// === HELPER 2: Standardize Response ===
 const getCartData = async (cart) => {
     await cart.populate('items.menuItemId');
 
     const cleanItems = cart.items
-        .filter(item => item.menuItemId) // Filter deleted items
+        .filter(item => item.menuItemId) 
         .map(item => ({
             menuItemId: item.menuItemId._id,
             name: item.menuItemId.name,
@@ -40,13 +40,26 @@ const getCartData = async (cart) => {
     };
 };
 
-// ===================== ADD TO CART =====================
+// ===================== ADD TO CART (Fixed for Guest) =====================
 export const addToCart = async (req, res, next) => {
   try {
     const { menuItemId, quantity = 1 } = req.body;
+    
+    // Middleware se identity aayi
     const { type, id } = req.identity;
 
-    if (!id) return ErrorResponse(res, 400, "Session invalid");
+    if (!id) return ErrorResponse(res, 400, "Session invalid. Please refresh.");
+
+    // ✅ FIX: Agar Guest hai, aur DB me Session nahi hai, to Create karo
+    if (type === 'session') {
+        const existingSession = await Session.findOne({ sessionToken: id });
+        if (!existingSession) {
+            await Session.create({
+                sessionToken: id,
+                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 Days
+            });
+        }
+    }
 
     let query = type === 'user' ? { userId: id } : { sessionToken: id };
     let cart = await Cart.findOne(query);
@@ -70,7 +83,6 @@ export const addToCart = async (req, res, next) => {
     cart.totalCartPrice = await calculateTotal(cart.items);
     await cart.save();
 
-    // Fix: Return clean formatted data
     const responseData = await getCartData(cart);
     return SuccessResponse(res, 200, responseData, "Item added to cart");
   } catch (error) {
@@ -90,7 +102,6 @@ export const getCart = async (req, res, next) => {
 
     if (!cart) return SuccessResponse(res, 200, { items: [], totalCartPrice: 0 });
 
-    // Reuse helper
     const responseData = await getCartData(cart);
     return SuccessResponse(res, 200, responseData);
 
@@ -114,7 +125,6 @@ export const removeItemCart = async (req, res, next) => {
     cart.totalCartPrice = await calculateTotal(cart.items);
     await cart.save();
 
-    // Fix: Return clean formatted data
     const responseData = await getCartData(cart);
     return SuccessResponse(res, 200, responseData, "Item removed");
   } catch (error) {
@@ -138,7 +148,6 @@ export const increaseItem = async (req, res, next) => {
         cart.totalCartPrice = await calculateTotal(cart.items);
         await cart.save();
 
-        // Fix: Return clean formatted data (Includes Price & Name)
         const responseData = await getCartData(cart);
         return SuccessResponse(res, 200, responseData, "Increased");
     } catch (error) { next(error); }
@@ -167,7 +176,6 @@ export const decreaseItem = async (req, res, next) => {
         cart.totalCartPrice = await calculateTotal(cart.items);
         await cart.save();
 
-        // Fix: Return clean formatted data
         const responseData = await getCartData(cart);
         return SuccessResponse(res, 200, responseData, "Decreased");
     } catch (error) { next(error); }
