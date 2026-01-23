@@ -9,8 +9,6 @@ import {
   UtensilsCrossed, X, Armchair 
 } from 'lucide-react';
 
-// 
-
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
     if (window.Razorpay) { resolve(true); return; }
@@ -48,23 +46,21 @@ const Checkout = () => {
     paymentMethod: 'cash' 
   });
 
-  // Calculations (Display purpose only, backend will recalculate)
   const gstAmount = Math.round(totalCartPrice * 0.05);
   const grandTotal = Math.max(0, totalCartPrice + gstAmount - discount);
-
   const myIdentity = userId || localStorage.getItem("sessionToken");
 
-  // 1. Fetch Cart & Tables
+  // 1. Fetch Data
   useEffect(() => {
     if (items.length === 0) dispatch(getCart());
-    
     const fetchTables = async () => {
         try {
-            const res = await api.get('/tables'); // Ensure this route exists
+            const res = await api.get('/tables'); 
             if(res.data.success) {
                 setTables(res.data.data.filter(t => t.isActive));
             }
-        } catch (err) { console.error(err,"Failed to load tables"); }
+        } catch (err) {console.log(err);
+         }
     };
     fetchTables();
   }, [dispatch, items.length]);
@@ -73,7 +69,7 @@ const Checkout = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // 2. Apply Coupon
+  // 2. Coupon
   const handleApplyCoupon = async () => {
     if (!formData.couponCode) return toast.error("Enter coupon code");
     setCouponLoading(true);
@@ -94,139 +90,108 @@ const Checkout = () => {
     } finally { setCouponLoading(false); }
   };
 
-  // 3. Place Order (Main Function)
+  // 3. MAIN ORDER FUNCTION
   const handlePlaceOrder = async () => {
-
     if (!formData.tableNumber) return toast.error("Please select a Table");
-
     if (!formData.customerPhone) return toast.error("Contact number is required");
-
-
 
     setLoading(true);
 
     try {
-
         const orderPayload = {
-
-            ...formData,
-
+            couponCode: appliedCoupon || null,
+            paymentMethod: formData.paymentMethod, // 'cash' or 'razorpay'
             tableNumber: Number(formData.tableNumber),
-
-            couponCode: discount > 0 ? appliedCoupon : null
-
+            customerName: formData.customerName,
+            customerPhone: formData.customerPhone,
+            customerEmail: formData.customerEmail,
+            notes: formData.notes
         };
 
-
-
-        const response = await api.post('/orders/orders', orderPayload);
-
-        const { success, data } = response.data;
-
-
+        // ✅ Correct Route: /orders/place
+        const response = await api.post('/orders/place', orderPayload);
+        const { success, data, message } = response.data;
 
         if (success) {
-
+            // === CASH ===
             if (formData.paymentMethod === 'cash') {
-
-                toast.success("Order Placed! 🍲");
-
+                toast.success(message || "Order Placed Successfully! 🍲");
                 dispatch(resetCart());
-
-                navigate('/order-success', { state: { orderId: data.orderNumber } });
-
-            }
-
+                // ✅ Navigate immediately (Loader will unmount)
+                navigate('/order-success', { 
+                    state: { 
+                        orderId: data._id || data.orderId, 
+                        orderNumber: data.orderNumber 
+                    } 
+                });
+                return; 
+            } 
+            
+            // === ONLINE ===
             else if (formData.paymentMethod === 'razorpay') {
-
                 await handleRazorpayPayment(data);
-
             }
-
+        } else {
+            toast.error(message || "Order failed.");
+            setLoading(false);
         }
 
     } catch (error) {
-
+        console.error("Order Error:", error);
         toast.error(error.response?.data?.message || "Failed to place order");
-
-        setLoading(false);
-
+        setLoading(false); 
     }
-
   };
 
-
-
+  // 4. Razorpay Handler
   const handleRazorpayPayment = async (backendResponse) => {
-
       const isScriptLoaded = await loadRazorpayScript();
-
       if (!isScriptLoaded) {
-
-          setLoading(false); return toast.error("Payment SDK failed");
-
+          setLoading(false); 
+          return toast.error("Payment SDK failed");
       }
-
-
 
       const { razorPayDetails, order } = backendResponse;
 
       const options = {
-
-          key: razorPayDetails.key,
-
-          amount: razorPayDetails.amount,
-
+          key: razorPayDetails.key, 
+          amount: razorPayDetails.amount, 
           currency: razorPayDetails.currency,
-
           name: "SavoryBites",
-
           description: `Order #${order.orderNumber}`,
-
-          order_id: razorPayDetails.id,
-
+          order_id: razorPayDetails.id, 
+          
           handler: async function (response) {
-
               try {
-
-                  toast.info("Verifying...");
-
+                  toast.info("Verifying Payment...");
                   const verifyRes = await api.post('/orders/verify-payment', {
-
                       razorPayOrderId: response.razorpay_order_id,
-
                       razorPayPaymentId: response.razorpay_payment_id,
-
                       razorPaySignature: response.razorpay_signature
-
                   });
 
                   if (verifyRes.data.success) {
-
                       toast.success("Paid Successfully!");
-
                       dispatch(resetCart());
-
-                      navigate('/order-success', { state: { orderId: order.orderNumber } });
-
+                      navigate('/order-success', { state: { orderId: order._id, orderNumber: order.orderNumber } });
                   }
-
-              } catch (error) { toast.error(error, "Verification Failed"); }
-
-              finally { setLoading(false); }
-
+              } catch (error) { 
+                  toast.error(error,"Verification Failed"); 
+              } finally { 
+                  setLoading(false); 
+              }
           },
-
           theme: { color: "#D4AF37" },
-
-          modal: { ondismiss: function() { setLoading(false); toast.warning("Payment Cancelled"); } }
-
+          modal: { 
+              ondismiss: function() { 
+                  setLoading(false); 
+                  toast.warning("Payment Cancelled"); 
+              } 
+          }
       };
 
       const rzp = new window.Razorpay(options);
-
       rzp.open();
-
   };
 
   if (items.length === 0) return <div className="text-white text-center pt-20">Cart Empty</div>;
@@ -236,11 +201,8 @@ const Checkout = () => {
        <h1 className="text-3xl font-cinzel font-bold text-white mb-8">Finalize Order</h1>
        
        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
           {/* LEFT: Forms */}
           <div className="lg:col-span-2 space-y-6">
-             
-             {/* Guest Details */}
              <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-6">
                 <h3 className="text-lg font-bold text-white mb-4 flex gap-2"><User className="text-yellow-500"/> Guest Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -250,12 +212,9 @@ const Checkout = () => {
                 </div>
              </section>
 
-             {/* Dining Info (Table Select) */}
              <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-6">
                 <h3 className="text-lg font-bold text-white mb-4 flex gap-2"><UtensilsCrossed className="text-yellow-500"/> Dining Info</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   
-                   {/* TABLE DROPDOWN */}
                    <div className="relative">
                       <label className="text-xs text-gray-500 uppercase block mb-2">Select Table *</label>
                       <div className="relative">
@@ -268,11 +227,8 @@ const Checkout = () => {
                         >
                             <option value="">-- Choose Table --</option>
                             {tables.map(table => {
-                                // Logic: Available OR Owned by Me (Session match)
-                                // Note: Ensure backend sends 'currentOwner' in table response
                                 const isMyTable = table.isOccupied && table.currentOwner === myIdentity;
                                 const isSelectable = !table.isOccupied || isMyTable;
-
                                 let label = `Table ${table.tableNumber} (${table.capacity} Seats)`;
                                 if (isMyTable) label += " - (Your Table)";
                                 else if (table.isOccupied) label += " - Occupied";
@@ -291,7 +247,6 @@ const Checkout = () => {
                         </select>
                       </div>
                    </div>
-
                    <div>
                       <label className="text-xs text-gray-500 uppercase block mb-2">Notes</label>
                       <input name="notes" value={formData.notes} onChange={handleChange} placeholder="Less spicy..." className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white" />
@@ -299,7 +254,6 @@ const Checkout = () => {
                 </div>
              </section>
 
-             {/* Payment Method */}
              <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-6">
                 <h3 className="text-lg font-bold text-white mb-4 flex gap-2"><Wallet className="text-yellow-500"/> Payment</h3>
                 <div className="grid grid-cols-2 gap-4">
@@ -315,12 +269,11 @@ const Checkout = () => {
              </section>
           </div>
 
-          {/* RIGHT: Bill */}
+          {/* RIGHT: Bill Summary */}
           <div className="lg:col-span-1">
               <div className="bg-[#0a0a0a]/80 border border-yellow-600/20 rounded-xl p-6 sticky top-24">
                  <h3 className="text-xl font-cinzel font-bold text-white mb-4 border-b border-white/10 pb-4">Bill Summary</h3>
                  
-                 {/* Items */}
                  <div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
                     {items.map(i => (
                        <div key={i.menuItemId} className="flex justify-between text-sm text-gray-400">
@@ -330,7 +283,6 @@ const Checkout = () => {
                     ))}
                  </div>
 
-                 {/* Pricing */}
                  <div className="space-y-2 border-t border-white/10 pt-4 mb-4">
                     <div className="flex justify-between text-gray-400 text-sm"><span>Item Total</span><span>₹{totalCartPrice}</span></div>
                     <div className="flex justify-between text-gray-400 text-sm"><span>GST (5%)</span><span>+ ₹{gstAmount}</span></div>
@@ -341,7 +293,6 @@ const Checkout = () => {
                     )}
                  </div>
 
-                 {/* Coupon Input */}
                  {!appliedCoupon ? (
                     <div className="flex gap-2 mb-4">
                        <input name="couponCode" value={formData.couponCode} onChange={handleChange} placeholder="COUPON CODE" className="flex-1 bg-black border border-white/20 rounded p-2 text-xs text-white uppercase" />
@@ -364,7 +315,6 @@ const Checkout = () => {
                  </button>
               </div>
           </div>
-
        </div>
     </div>
   );
