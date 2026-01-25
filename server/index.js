@@ -33,7 +33,7 @@ const server = http.createServer(app); // ✅ Server wrapping
 app.use(helmet()); // ✅ Security Headers
 app.use(express.json());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:5173",
+  origin: 'https://restaurant-qr-scanner.vercel.app' || "http://localhost:5173",
   credentials: true
 }));
 
@@ -43,7 +43,7 @@ dbconnect();
 // ✅ Socket.io Setup (For Kitchen Updates)
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: 'https://restaurant-qr-scanner.vercel.app' || "http://localhost:5173",
     methods: ["GET", "POST"]
   }
 });

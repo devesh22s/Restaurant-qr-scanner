@@ -36,23 +36,32 @@ const Checkout = () => {
   const [discount, setDiscount] = useState(0);
   const [appliedCoupon, setAppliedCoupon] = useState(null);
 
-  const [formData, setFormData] = useState({
-    customerName: name || '',
-    customerEmail: email || '',
-    customerPhone: contact || '', 
-    tableNumber: '', 
-    notes: '',
-    couponCode: '',
-    paymentMethod: 'cash' 
+  // --- ✅ SMART INITIALIZATION (Auto-Fill Logic) ---
+  // Redux (Login) > LocalStorage (Previous Guest) > Empty
+  const [formData, setFormData] = useState(() => {
+      const savedUser = JSON.parse(localStorage.getItem('customerInfo') || '{}');
+      const savedTable = localStorage.getItem('activeTable') || '';
+      
+      return {
+        customerName: name || savedUser.name || '',
+        customerEmail: email || savedUser.email || '',
+        customerPhone: contact || savedUser.phone || '', 
+        tableNumber: savedTable, // Auto-select last table
+        notes: '',
+        couponCode: '',
+        paymentMethod: 'cash' 
+      };
   });
 
   const gstAmount = Math.round(totalCartPrice * 0.05);
   const grandTotal = Math.max(0, totalCartPrice + gstAmount - discount);
 
-  // ✅ Strong Identity Check
+  // Backend Identity
   const myIdentity = userId || localStorage.getItem("sessionToken");
+  // Local Storage Identity (For Table Persistence)
+  const savedActiveTable = localStorage.getItem('activeTable');
 
-  // 1. Fetch Cart & Tables
+  // 1. Fetch Data
   useEffect(() => {
     if (items.length === 0) dispatch(getCart());
     
@@ -92,17 +101,31 @@ const Checkout = () => {
     } finally { setCouponLoading(false); }
   };
 
+  // ✅ Helper: Save Details for Next Time
+  const saveCustomerDetails = () => {
+      localStorage.setItem('customerInfo', JSON.stringify({
+          name: formData.customerName,
+          phone: formData.customerPhone,
+          email: formData.customerEmail
+      }));
+      // Save Table so next time it is auto-selected
+      localStorage.setItem('activeTable', formData.tableNumber);
+  };
+
   // 3. MAIN ORDER FUNCTION
   const handlePlaceOrder = async () => {
     if (!formData.tableNumber) return toast.error("Please select a Table");
     if (!formData.customerPhone) return toast.error("Contact number is required");
+
+    // Save details before making request
+    saveCustomerDetails();
 
     setLoading(true);
 
     try {
         const orderPayload = {
             couponCode: appliedCoupon || null,
-            paymentMethod: formData.paymentMethod, // 'cash' or 'razorpay'
+            paymentMethod: formData.paymentMethod, 
             tableNumber: Number(formData.tableNumber),
             customerName: formData.customerName,
             customerPhone: formData.customerPhone,
@@ -114,22 +137,17 @@ const Checkout = () => {
         const { success, data, message } = response.data;
 
         if (success) {
-            // === CASE A: CASH ===
+            // === CASH ===
             if (formData.paymentMethod === 'cash') {
                 toast.success(message || "Order Placed Successfully! 🍲");
-                dispatch(resetCart()); // Cash me cart khali karo
+                dispatch(resetCart()); 
                 navigate('/order-success', { 
-                    state: { 
-                        orderId: data._id || data.orderId, 
-                        orderNumber: data.orderNumber 
-                    } 
+                    state: { orderId: data._id || data.orderId, orderNumber: data.orderNumber } 
                 });
                 return;
             } 
-            
-            // === CASE B: ONLINE ===
+            // === ONLINE ===
             else if (formData.paymentMethod === 'razorpay') {
-                // Razorpay start karo (Cart abhi khali mat karo)
                 await handleRazorpayPayment(data);
             }
         } else {
@@ -162,7 +180,6 @@ const Checkout = () => {
           description: `Order #${order.orderNumber}`,
           order_id: razorPayDetails.id, 
           
-          // ✅ Fix: Prefill Phone
           prefill: {
               name: formData.customerName,
               email: formData.customerEmail,
@@ -180,12 +197,11 @@ const Checkout = () => {
 
                   if (verifyRes.data.success) {
                       toast.success("Paid Successfully!");
-                      dispatch(resetCart()); // ✅ Verification ke baad cart khali
+                      dispatch(resetCart()); 
                       navigate('/order-success', { state: { orderId: order._id, orderNumber: order.orderNumber } });
                   }
               } catch (error) { 
-                  toast.error("Verification Failed"); 
-                  console.error(error);
+                  toast.error(error,"Verification Failed"); 
               } finally { 
                   setLoading(false); 
               }
@@ -195,7 +211,6 @@ const Checkout = () => {
               ondismiss: function() { 
                   setLoading(false); 
                   toast.warning("Payment Cancelled"); 
-                  // ✅ IMPORTANT: Cart is NOT reset here
               } 
           }
       };
@@ -212,16 +227,18 @@ const Checkout = () => {
        
        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
-             {/* ... Guest Details & Payment Section Same as before ... */}
+             {/* Guest Details */}
              <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-6">
                 <h3 className="text-lg font-bold text-white mb-4 flex gap-2"><User className="text-yellow-500"/> Guest Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   {/* ✅ Auto-Filled Inputs */}
                    <input name="customerName" value={formData.customerName} onChange={handleChange} placeholder="Name" className="bg-black/50 border border-white/10 rounded-lg p-3 text-white" />
                    <input name="customerPhone" value={formData.customerPhone} onChange={handleChange} placeholder="Phone *" className="bg-black/50 border border-white/10 rounded-lg p-3 text-white" />
                    <input name="customerEmail" value={formData.customerEmail} onChange={handleChange} placeholder="Email (Optional)" className="bg-black/50 border border-white/10 rounded-lg p-3 text-white col-span-2" />
                 </div>
              </section>
 
+             {/* Dining Info */}
              <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-6">
                 <h3 className="text-lg font-bold text-white mb-4 flex gap-2"><UtensilsCrossed className="text-yellow-500"/> Dining Info</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -237,9 +254,18 @@ const Checkout = () => {
                         >
                             <option value="">-- Choose Table --</option>
                             {tables.map(table => {
-                                // ✅ FIX: Better ID Comparison for "My Table"
-                                const ownerId = table.currentOwner ? (typeof table.currentOwner === 'object' ? table.currentOwner._id : table.currentOwner) : null;
-                                const isMyTable = table.isOccupied && String(ownerId) === String(myIdentity);
+                                // ✅ SMART LOGIC: 
+                                // 1. Check ID from Backend
+                                const ownerId = table.currentOwner 
+                                    ? (typeof table.currentOwner === 'object' ? table.currentOwner._id : table.currentOwner) 
+                                    : null;
+                                const isBackendMatch = table.isOccupied && String(ownerId) === String(myIdentity);
+                                
+                                // 2. Check LocalStorage (Fallback agar backend sync na ho)
+                                const isLocalMatch = String(table.tableNumber) === String(savedActiveTable);
+
+                                // 3. Combine Logic
+                                const isMyTable = isBackendMatch || isLocalMatch;
                                 const isSelectable = !table.isOccupied || isMyTable;
 
                                 let label = `Table ${table.tableNumber} (${table.capacity} Seats)`;
@@ -260,7 +286,6 @@ const Checkout = () => {
                         </select>
                       </div>
                    </div>
-                   {/* ... Notes input ... */}
                    <div>
                       <label className="text-xs text-gray-500 uppercase block mb-2">Notes</label>
                       <input name="notes" value={formData.notes} onChange={handleChange} placeholder="Less spicy..." className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white" />
@@ -283,11 +308,9 @@ const Checkout = () => {
              </section>
           </div>
 
-          {/* RIGHT: Bill Summary */}
           <div className="lg:col-span-1">
               <div className="bg-[#0a0a0a]/80 border border-yellow-600/20 rounded-xl p-6 sticky top-24">
                  <h3 className="text-xl font-cinzel font-bold text-white mb-4 border-b border-white/10 pb-4">Bill Summary</h3>
-                 
                  <div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
                     {items.map(i => (
                        <div key={i.menuItemId} className="flex justify-between text-sm text-gray-400">
@@ -296,7 +319,6 @@ const Checkout = () => {
                        </div>
                     ))}
                  </div>
-
                  <div className="space-y-2 border-t border-white/10 pt-4 mb-4">
                     <div className="flex justify-between text-gray-400 text-sm"><span>Item Total</span><span>₹{totalCartPrice}</span></div>
                     <div className="flex justify-between text-gray-400 text-sm"><span>GST (5%)</span><span>+ ₹{gstAmount}</span></div>
@@ -306,7 +328,7 @@ const Checkout = () => {
                        </div>
                     )}
                  </div>
-
+                 
                  {!appliedCoupon ? (
                     <div className="flex gap-2 mb-4">
                        <input name="couponCode" value={formData.couponCode} onChange={handleChange} placeholder="COUPON CODE" className="flex-1 bg-black border border-white/20 rounded p-2 text-xs text-white uppercase" />

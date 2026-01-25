@@ -198,19 +198,21 @@ export const verifyPayment = async (req, res, next) => {
 
 // --- Helper Actions (Modified) ---
 const handlePostOrderActions = async (req, order, cart, couponId, tableNum, userType, userId, amount, shouldClearCart) => {
-    // 1. Coupon Count
+    // 1. Update Coupon Usage
     if (couponId) await Coupon.findByIdAndUpdate(couponId, { $inc: { usedCount: 1 } });
 
-    // 2. Table Occupied
+    // 2. Mark Table Occupied & Set Owner
     if (tableNum) {
-        const ownerId = userType === 'user' ? userId : req.identity.id;
+        // ✅ FIX: Force convert to String before saving
+        const ownerId = userType === 'user' ? String(userId) : String(req.identity.id);
+        
         await Table.findOneAndUpdate(
             { tableNumber: tableNum }, 
             { isOccupied: true, currentOwner: ownerId }
         );
     }
 
-    // 3. Socket
+    // 3. Notify Kitchen
     try {
         const io = req.app.get('io');
         if(io) io.emit('order', { type: 'NEW_ORDER', data: order });
@@ -223,7 +225,9 @@ const handlePostOrderActions = async (req, order, cart, couponId, tableNum, user
         await cart.save();
         
         if (userType === 'user') {
-            await myModel.findByIdAndUpdate(userId, { $inc: { totalOrders: 1, totalSpend: amount } });
+            try {
+                await myModel.findByIdAndUpdate(userId, { $inc: { totalOrders: 1, totalSpend: amount } });
+            } catch(e) {}
         }
     }
 };
