@@ -4,21 +4,16 @@ import { fetchMenuItems, setSelectedCategory } from '../redux/menuSlice';
 import { addedTOCart, getCart } from '../redux/cartSlice';
 import { useToast } from '../context/ToastContext';
 import Hero from './Hero';
-import { ShoppingBag, Star, Info } from 'lucide-react';
+import { ShoppingBag, Star } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import api from '../lib/api'
+import api from '../lib/api';
 
+// Loading Component
 const LoadingSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
     {[...Array(6)].map((_, index) => (
-      <div
-        key={index}
-        className="bg-gray-900/50 border border-gray-800 rounded-lg overflow-hidden animate-pulse"
-      >
-     
+      <div key={index} className="bg-gray-900/50 border border-gray-800 rounded-lg overflow-hidden animate-pulse">
         <div className="h-48 w-full bg-gray-800/50"></div>
-        
-     
         <div className="p-4 space-y-3">
           <div className="flex items-start justify-between">
             <div className="h-5 w-32 bg-gray-800/50 rounded"></div>
@@ -41,71 +36,68 @@ const LoadingSkeleton = () => (
 const Home = () => {
   const dispatch = useDispatch();
   const toast = useToast();
+  
+  // Redux State
   const { menuItems, categories, loading, error, selectedCategory, searchQuery } = useSelector((state) => state.menu);
 
+  // URL Params & Table State
   const [searchParams] = useSearchParams();
   const tableSlug = searchParams.get('table');
 
-  const [activeTable, setActiveTable] = useState(null);
+  // ✅ FIX: Lazy Initialization (Avoids synchronous setState warning)
+  // Page load hote hi LocalStorage check karega aur value set kar dega.
+  const [activeTable, setActiveTable] = useState(() => {
+    return localStorage.getItem('tableNumber') || null;
+  });
 
-
-  // NOTE: Guest user ke paas userId nahi hoga, isliye hum sirf auth check nahi karenge
-  // Backend headers (sessionToken) handle karega.
-
-  // const { userId } = useSelector((state) => state.auth);
-
+  // ✅ 1. Table Detection Logic (Runs only when QR is scanned / Slug changes)
   useEffect(() => {
     const detectTable = async () => {
       if (tableSlug) {
         try {
-          // Backend se pucho ye slug kis table ka hai
-          // Note: Backend route check kar lena (/tables/slug/:slug hona chahiye)
           const res = await api.get(`/tables/slug/${tableSlug}`);
           
           if (res.data.success) {
             const tableData = res.data.data;
             
-            // Browser me Table Number save kar lo
+            // Save to LocalStorage
             localStorage.setItem('tableNumber', tableData.tableNumber);
-            localStorage.setItem('tableId', tableData._id); // Backup ke liye ID bhi rakh lo
+            localStorage.setItem('tableId', tableData._id);
+            
+            // Update State
             setActiveTable(tableData.tableNumber);
             
-            // User ko bata do
             toast.success(`Welcome! You are at Table ${tableData.tableNumber}`);
-            console.log("Table Detected:", tableData.tableNumber);
           }
-          
         } catch (error) {
           console.error("Invalid QR Code", error);
-          // Agar QR galat hai to purana table number hata do taaki confusion na ho
+          
+          // Clear invalid data
           localStorage.removeItem('tableNumber');
+          setActiveTable(null);
+          
           toast.error("Invalid QR Code. Please scan again.");
         }
       }
-       const storedTable = localStorage.getItem('tableNumber');
-    if (storedTable) setActiveTable(storedTable);
     };
-   
 
     detectTable();
-  }, [tableSlug, toast]);
+  }, [tableSlug, toast]); // Dependency array me sirf wahi cheezein jo badal sakti hain
 
-
+  // ✅ 2. Menu Fetching Logic
   useEffect(() => {
     dispatch(fetchMenuItems(selectedCategory));
   }, [dispatch, selectedCategory, searchQuery]);
 
+  // Handlers
   const handleCategoryChange = (category) => {
     dispatch(setSelectedCategory(category));
   };
 
   const handleAddToCart = async (menuItemId) => {
     try {
-      // FIX: No userId check needed. Headers will handle identity.
       await dispatch(addedTOCart({ menuItemId, quantity: 1 })).unwrap();
       toast.success('Item added to cart successfully!');
-      
-      // Cart refresh karo
       dispatch(getCart()); 
     } catch (error) {
       const errorMessage = typeof error === 'string' ? error : error?.message || 'Failed to add item';
@@ -113,21 +105,20 @@ const Home = () => {
     }
   };
 
+  // Loading State
   if (loading) {
     return (
       <div className="space-y-8">
-        {/* Header */}
         <div>
           <h1 className="text-3xl font-bold mb-2 text-white text-center py-20">Our Menu</h1>
           <p className="text-gray-400">Discover our delicious vegetarian offerings</p>
         </div>
-
-        {/* Loading skeleton */}
         <LoadingSkeleton />
       </div>
     );
   }
 
+  // Error State
   if (error) {
     return (
       <div className="space-y-8">
@@ -151,18 +142,16 @@ const Home = () => {
 
   return (
     <div>
-      {/* Hero Section */}
+      {/* ✅ Pass activeTable prop to Hero */}
       <Hero activeTable={activeTable} />
 
-      {/* Menu Section */}
       <div id="menu-section" className="space-y-8 pt-12 pb-20">
         <div className="text-center">
           <h1 className="text-3xl md:text-4xl font-cinzel font-bold text-white mb-2">Our Menu</h1>
           <p className="text-gray-400 font-manrope">Discover our delicious vegetarian offerings</p>
         </div>
 
-     
-     {/* Categories */}
+        {/* Categories */}
         {categories.length > 0 && (
           <div className="flex flex-wrap justify-center gap-3 px-4">
             {categories.map((category) => (
@@ -181,8 +170,7 @@ const Home = () => {
           </div>
         )}
 
-   
-    {/* Menu Grid */}
+        {/* Menu Grid */}
         {menuItems.length === 0 ? (
           <div className="text-center py-12 text-gray-500">No items found in this category.</div>
         ) : (
@@ -201,18 +189,17 @@ const Home = () => {
                     className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700"
                     onError={(e) => { e.target.src = 'https://via.placeholder.com/400x300?text=Dish'; }}
                   />
-                  {(!item.isAvailable) && (
+                  {!item.isAvailable && (
                     <div className="absolute top-3 right-3 z-20 bg-red-500/90 text-white px-3 py-1 rounded-sm text-xs font-bold uppercase tracking-wider backdrop-blur-md">
                       Sold Out
                     </div>
                   )}
-                  {/* Price Tag */}
                   <div className="absolute bottom-3 left-3 z-20">
                      <span className="text-2xl font-cinzel font-bold text-yellow-500 drop-shadow-md">₹{item.price}</span>
                   </div>
                 </div>
 
-   {/* Content Section */}
+                {/* Content Section */}
                 <div className="p-5 relative">
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="text-lg font-bold text-white font-cinzel group-hover:text-yellow-500 transition-colors">{item.name}</h3>
@@ -247,8 +234,8 @@ const Home = () => {
                 </div>
               </div>
             ))}
-        </div>
-      )}
+          </div>
+        )}
       </div>
     </div>
   );
