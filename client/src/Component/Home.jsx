@@ -1,10 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchMenuItems, setSelectedCategory } from '../redux/menuSlice';
 import { addedTOCart, getCart } from '../redux/cartSlice';
 import { useToast } from '../context/ToastContext';
 import Hero from './Hero';
 import { ShoppingBag, Star, Info } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import api from '../lib/api'
 
 const LoadingSkeleton = () => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -41,11 +43,53 @@ const Home = () => {
   const toast = useToast();
   const { menuItems, categories, loading, error, selectedCategory, searchQuery } = useSelector((state) => state.menu);
 
+  const [searchParams] = useSearchParams();
+  const tableSlug = searchParams.get('table');
+
+  const [activeTable, setActiveTable] = useState(null);
+
 
   // NOTE: Guest user ke paas userId nahi hoga, isliye hum sirf auth check nahi karenge
   // Backend headers (sessionToken) handle karega.
 
   // const { userId } = useSelector((state) => state.auth);
+
+  useEffect(() => {
+    const detectTable = async () => {
+      if (tableSlug) {
+        try {
+          // Backend se pucho ye slug kis table ka hai
+          // Note: Backend route check kar lena (/tables/slug/:slug hona chahiye)
+          const res = await api.get(`/tables/slug/${tableSlug}`);
+          
+          if (res.data.success) {
+            const tableData = res.data.data;
+            
+            // Browser me Table Number save kar lo
+            localStorage.setItem('tableNumber', tableData.tableNumber);
+            localStorage.setItem('tableId', tableData._id); // Backup ke liye ID bhi rakh lo
+            setActiveTable(tableData.tableNumber);
+            
+            // User ko bata do
+            toast.success(`Welcome! You are at Table ${tableData.tableNumber}`);
+            console.log("Table Detected:", tableData.tableNumber);
+          }
+          
+        } catch (error) {
+          console.error("Invalid QR Code", error);
+          // Agar QR galat hai to purana table number hata do taaki confusion na ho
+          localStorage.removeItem('tableNumber');
+          toast.error("Invalid QR Code. Please scan again.");
+        }
+      }
+       const storedTable = localStorage.getItem('tableNumber');
+    if (storedTable) setActiveTable(storedTable);
+    };
+   
+
+    detectTable();
+  }, [tableSlug, toast]);
+
 
   useEffect(() => {
     dispatch(fetchMenuItems(selectedCategory));
@@ -108,7 +152,7 @@ const Home = () => {
   return (
     <div>
       {/* Hero Section */}
-      <Hero />
+      <Hero activeTable={activeTable} />
 
       {/* Menu Section */}
       <div id="menu-section" className="space-y-8 pt-12 pb-20">

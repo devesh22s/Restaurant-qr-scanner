@@ -2,7 +2,7 @@ import React from 'react';
 import { UtensilsCrossed, ArrowRight, Star, Clock, Award, MousePointer2 } from 'lucide-react';
 // import { useNavigate } from 'react-router-dom';
 
-const Hero = () => {
+const Hero = ({activeTable}) => {
   // const navigate = useNavigate();
 
   return (
@@ -93,9 +93,7 @@ const Hero = () => {
                 <button
                   onClick={() => {
                     const menuSection = document.getElementById('menu-section');
-                    if (menuSection) {
-                      menuSection.scrollIntoView({ behavior: 'smooth' });
-                    }
+                    if (menuSection) menuSection.scrollIntoView({ behavior: 'smooth' });
                   }}
                   className="group relative px-8 py-4 bg-gradient-to-r from-[#BF953F] via-[#FCF6BA] to-[#B38728] text-[#291d0a] font-bold rounded-sm shadow-[0_5px_15px_rgba(0,0,0,0.5)] overflow-hidden flex items-center justify-center gap-3 transition-transform active:scale-[0.98]"
                 >
@@ -104,15 +102,23 @@ const Hero = () => {
                   <ArrowRight className="relative w-5 h-5 group-hover:translate-x-1 transition-transform stroke-[2.5]" />
                 </button>
                 
-                <button
-                  onClick={() => {
-                    // TODO: Navigate to reservations or contact
-                    console.log('Reserve table');
-                  }}
-                  className="px-8 py-4 bg-transparent border border-yellow-600/40 text-yellow-100 font-semibold rounded-sm hover:bg-yellow-900/20 hover:border-yellow-500/60 transition-all duration-300 font-cinzel tracking-wide"
-                >
-                  Reserve a Table
-                </button>
+                {activeTable ? (
+                  // Agar QR Scan ho chuka hai (Table Active hai)
+                  <button
+                    className="px-8 py-4 bg-green-900/20 border border-green-500/40 text-green-100 font-semibold rounded-sm cursor-default flex items-center gap-2 font-cinzel tracking-wide shadow-[0_0_15px_rgba(34,197,94,0.1)]"
+                  >
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    Dining at Table {activeTable}
+                  </button>
+                ) : (
+                  // Agar QR Scan NAHI hua (Normal User)
+                  <button
+                    onClick={() => console.log('Reserve table logic')}
+                    className="px-8 py-4 bg-transparent border border-yellow-600/40 text-yellow-100 font-semibold rounded-sm hover:bg-yellow-900/20 hover:border-yellow-500/60 transition-all duration-300 font-cinzel tracking-wide"
+                  >
+                    Reserve a Table
+                  </button>
+                )}
               </div>
 
               {/* Stats Section */}

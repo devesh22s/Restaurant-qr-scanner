@@ -60,6 +60,18 @@ const Checkout = () => {
   const myIdentity = userId || localStorage.getItem("sessionToken");
   // Local Storage Identity (For Table Persistence)
   const savedActiveTable = localStorage.getItem('activeTable');
+// ✅ Page Load hote hi Table Number auto-fill karne ke liye
+useEffect(() => {
+    const savedTable = localStorage.getItem('tableNumber');
+    
+    // Agar QR scan karke aaya hai, to wahi table select kar do
+    if (savedTable) {
+        setFormData(prev => ({ 
+            ...prev, 
+            tableNumber: savedTable 
+        }));
+    }
+}, []); // 👈 Khali array ka matlab ye sirf 1 baar chalega
 
   // 1. Fetch Data
   useEffect(() => {
@@ -117,6 +129,12 @@ const Checkout = () => {
     if (!formData.tableNumber) return toast.error("Please select a Table");
     if (!formData.customerPhone) return toast.error("Contact number is required");
 
+const storedTableNumber = localStorage.getItem('tableNumber');
+    if (!storedTableNumber) {
+        toast.error("Please scan the QR code on your table first!");
+        return;
+    }
+
     // Save details before making request
     saveCustomerDetails();
 
@@ -126,7 +144,7 @@ const Checkout = () => {
         const orderPayload = {
             couponCode: appliedCoupon || null,
             paymentMethod: formData.paymentMethod, 
-            tableNumber: Number(formData.tableNumber),
+            tableNumber: Number(storedTableNumber),
             customerName: formData.customerName,
             customerPhone: formData.customerPhone,
             customerEmail: formData.customerEmail,
