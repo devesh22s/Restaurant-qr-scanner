@@ -1,24 +1,23 @@
 import express from 'express';
 import { createTable, getAllTable, getTableBySlug, deleteTable, freeTable } from '../controller/tableController.js';
-// Middleware imports ensure karein
-import verify from '../middleware/verify.js'; // ya identifyUser
+import verify from '../middleware/verify.js'; 
 import checkRole from '../middleware/checkRole.js';
 
 const router = express.Router();
 
-// 1. Create Table (Admin Only)
+// 1. Create (Admin)
 router.post("/", verify, checkRole(["admin"]), createTable);
 
-// 2. Get All Tables (Admin Only)
+// 2. Get All
 router.get("/", getAllTable);
 
-// 3. Delete Table (Admin Only) - ✅ NEW
+// 3. Delete (Admin)
 router.delete("/:id", verify, checkRole(["admin"]), deleteTable);
 
-// 4. admin clear the table
+// 4. Free Table (Admin)
 router.put("/:id/free", verify, checkRole(["admin"]), freeTable);
 
-// 5. Get Table by Slug (Public/Guest)
+// ✅ 5. Verify QR (Iska URL frontend se match hona chahiye)
 router.get("/slug/:slug", getTableBySlug);
 
 export default router;

@@ -14,8 +14,9 @@ export const createTable = async (req, res) => {
     }
 
     const qrSlug = crypto.randomBytes(6).toString("hex");
-    const domain = process.env.DOMAIN_URL ||"https://restaurant-qr-scanner.vercel.app"|| "http://localhost:5173"; 
-const qrCodeUrl = `${domain}/?table=${qrSlug}`;
+    const domain = process.env.DOMAIN_URL || "https://restaurant-qr-scanner.vercel.app"||"http://localhost:5173"; 
+    const qrCodeUrl = `${domain}/menu?table=${qrSlug}`;
+
     // Generate QR Image Base64
     const qrImage = await QRCode.toDataURL(qrCodeUrl);
 

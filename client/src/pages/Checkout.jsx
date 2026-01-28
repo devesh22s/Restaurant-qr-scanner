@@ -36,17 +36,18 @@ const Checkout = () => {
   const [discount, setDiscount] = useState(0);
   const [appliedCoupon, setAppliedCoupon] = useState(null);
 
-  // --- ✅ SMART INITIALIZATION (Auto-Fill Logic) ---
-  // Redux (Login) > LocalStorage (Previous Guest) > Empty
+  // --- ✅ SMART INITIALIZATION (Fixed Auto-Select) ---
   const [formData, setFormData] = useState(() => {
       const savedUser = JSON.parse(localStorage.getItem('customerInfo') || '{}');
-      const savedTable = localStorage.getItem('activeTable') || '';
+      
+      // 🔥 FIX: 'tableNumber' uthao jo Home page ne QR scan karke set kiya tha
+      const scannedTable = localStorage.getItem('tableNumber') || localStorage.getItem('activeTable') || '';
       
       return {
         customerName: name || savedUser.name || '',
         customerEmail: email || savedUser.email || '',
         customerPhone: contact || savedUser.phone || '', 
-        tableNumber: savedTable, // Auto-select last table
+        tableNumber: scannedTable, // ✅ Ye ab scanned table ko auto-fill karega
         notes: '',
         couponCode: '',
         paymentMethod: 'cash' 
@@ -58,20 +59,9 @@ const Checkout = () => {
 
   // Backend Identity
   const myIdentity = userId || localStorage.getItem("sessionToken");
-  // Local Storage Identity (For Table Persistence)
-  const savedActiveTable = localStorage.getItem('activeTable');
-// ✅ Page Load hote hi Table Number auto-fill karne ke liye
-useEffect(() => {
-    const savedTable = localStorage.getItem('tableNumber');
-    
-    // Agar QR scan karke aaya hai, to wahi table select kar do
-    if (savedTable) {
-        setFormData(prev => ({ 
-            ...prev, 
-            tableNumber: savedTable 
-        }));
-    }
-}, []); // 👈 Khali array ka matlab ye sirf 1 baar chalega
+  
+  // Local Storage Identity (For dropdown matching)
+  const scannedTableNumber = localStorage.getItem('tableNumber');
 
   // 1. Fetch Data
   useEffect(() => {
@@ -81,6 +71,7 @@ useEffect(() => {
         try {
             const res = await api.get('/tables'); 
             if(res.data.success) {
+                // Sirf Active tables dikhao
                 setTables(res.data.data.filter(t => t.isActive));
             }
         } catch (err) { console.error(err,"Failed to load tables"); }
@@ -129,12 +120,6 @@ useEffect(() => {
     if (!formData.tableNumber) return toast.error("Please select a Table");
     if (!formData.customerPhone) return toast.error("Contact number is required");
 
-const storedTableNumber = localStorage.getItem('tableNumber');
-    if (!storedTableNumber) {
-        toast.error("Please scan the QR code on your table first!");
-        return;
-    }
-
     // Save details before making request
     saveCustomerDetails();
 
@@ -144,7 +129,7 @@ const storedTableNumber = localStorage.getItem('tableNumber');
         const orderPayload = {
             couponCode: appliedCoupon || null,
             paymentMethod: formData.paymentMethod, 
-            tableNumber: Number(storedTableNumber),
+            tableNumber: Number(formData.tableNumber),
             customerName: formData.customerName,
             customerPhone: formData.customerPhone,
             customerEmail: formData.customerEmail,
@@ -249,7 +234,6 @@ const storedTableNumber = localStorage.getItem('tableNumber');
              <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-6">
                 <h3 className="text-lg font-bold text-white mb-4 flex gap-2"><User className="text-yellow-500"/> Guest Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   {/* ✅ Auto-Filled Inputs */}
                    <input name="customerName" value={formData.customerName} onChange={handleChange} placeholder="Name" className="bg-black/50 border border-white/10 rounded-lg p-3 text-white" />
                    <input name="customerPhone" value={formData.customerPhone} onChange={handleChange} placeholder="Phone *" className="bg-black/50 border border-white/10 rounded-lg p-3 text-white" />
                    <input name="customerEmail" value={formData.customerEmail} onChange={handleChange} placeholder="Email (Optional)" className="bg-black/50 border border-white/10 rounded-lg p-3 text-white col-span-2" />
@@ -272,18 +256,22 @@ const storedTableNumber = localStorage.getItem('tableNumber');
                         >
                             <option value="">-- Choose Table --</option>
                             {tables.map(table => {
-                                // ✅ SMART LOGIC: 
-                                // 1. Check ID from Backend
+                                // ✅ SMART LOGIC (Fixed for Auto-Select)
+                                
+                                // 1. Backend Identity Check
                                 const ownerId = table.currentOwner 
                                     ? (typeof table.currentOwner === 'object' ? table.currentOwner._id : table.currentOwner) 
                                     : null;
                                 const isBackendMatch = table.isOccupied && String(ownerId) === String(myIdentity);
                                 
-                                // 2. Check LocalStorage (Fallback agar backend sync na ho)
-                                const isLocalMatch = String(table.tableNumber) === String(savedActiveTable);
+                                // 2. LocalStorage Check (Scanned Table)
+                                // Yahan hum check kar rahe hain ki kya ye table wahi hai jo humne scan kiya tha
+                                const isScannedMatch = String(table.tableNumber) === String(scannedTableNumber);
 
-                                // 3. Combine Logic
-                                const isMyTable = isBackendMatch || isLocalMatch;
+                                // 3. Is it my table?
+                                const isMyTable = isBackendMatch || isScannedMatch;
+                                
+                                // 4. Selectable Logic
                                 const isSelectable = !table.isOccupied || isMyTable;
 
                                 let label = `Table ${table.tableNumber} (${table.capacity} Seats)`;

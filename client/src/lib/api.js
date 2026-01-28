@@ -1,52 +1,83 @@
 import axios from 'axios';
 
 const api = axios.create({
-  // ✅ IMPORTANT: Backend URL yahan check karein. Slash (/) last me nahi hona chahiye.
-  baseURL: import.meta.env.VITE_API_URL || 'https://restaurant-qr-scanner-1qo7.vercel.app/api/v1',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1',
   withCredentials: true,
 });
 
+// 1. REQUEST INTERCEPTOR
 api.interceptors.request.use((config) => {
   const userToken = localStorage.getItem('accessToken');
   let sessionToken = localStorage.getItem('sessionToken');
 
-  if (userToken) config.headers.Authorization = `Bearer ${userToken}`;
+  // User Token (Admin/Customer)
+  if (userToken) {
+    config.headers.Authorization = `Bearer ${userToken}`;
+  } 
   
+  // Guest Token (Generate only if not logged in)
   if (!userToken && !sessionToken) {
       sessionToken = `guest-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       localStorage.setItem('sessionToken', sessionToken);
   }
 
-  if (sessionToken) config.headers['x-session-token'] = sessionToken;
+  // Session Token (Always send for cart continuity)
+  if (sessionToken) {
+    config.headers['x-session-token'] = sessionToken;
+  }
 
   return config;
-}, (error) => Promise.reject(error));
+}, (error) => {
+  return Promise.reject(error);
+});
 
+// 2. RESPONSE INTERCEPTOR (Auto Logout Logic)
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
-    // 404 Error (Table Not Found) ko interceptor handle na kare, use Home.jsx handle karega
-    if (error.response?.status === 404) {
+
+    // Login/Refresh page par error aaye to intercept mat karo
+    if (originalRequest.url.includes('/auth/login') || originalRequest.url.includes('/auth/refresh-token')) {
         return Promise.reject(error);
     }
-
-    if (originalRequest.url.includes('/auth/login')) return Promise.reject(error);
     
+    // Agar 401 (Unauthorized) hai aur retry nahi kiya hai
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
+      
       try {
         const storedRefreshToken = localStorage.getItem('refreshToken');
-        if (!storedRefreshToken) throw new Error("No token");
+        
+        if (!storedRefreshToken) {
+             throw new Error("No refresh token found");
+        }
 
-        const { data } = await axios.post(`${api.defaults.baseURL}/auth/refresh-token`, { refreshToken: storedRefreshToken });
-        localStorage.setItem('accessToken', data.accessToken);
-        originalRequest.headers['Authorization'] = `Bearer ${data.accessToken}`;
+        // Call Refresh API
+        const { data } = await axios.post(
+          `${api.defaults.baseURL}/auth/refresh-token`,
+          { refreshToken: storedRefreshToken }
+        );
+        
+        // Success
+        const newAccessToken = data.accessToken;
+        localStorage.setItem('accessToken', newAccessToken);
+        
+        // Retry Original Request
+        originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
         return api(originalRequest);
+
       } catch (refreshError) {
-        localStorage.clear();
-        window.location.href = '/login';
+        // 🚨 FINAL LOGOUT: Agar Refresh bhi fail hua, to sab saaf karo
+        console.error("Session expired completely. Logging out...");
+        
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        localStorage.removeItem('role');
+        // Note: 'sessionToken' mat udao, taaki wo Guest ban sake agar chahe to
+        
+        window.location.href = '/login'; // Force Redirect
         return Promise.reject(refreshError);
       }
     }
