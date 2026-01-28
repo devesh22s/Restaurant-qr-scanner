@@ -6,7 +6,7 @@ import api from '../lib/api';
 import { getCart, resetCart } from '../redux/cartSlice';
 import { 
   Wallet, User, CheckCircle, Loader2, 
-  UtensilsCrossed, X, Armchair 
+  UtensilsCrossed, X, Armchair, Receipt, Sparkles, CreditCard, Banknote
 } from 'lucide-react';
 
 const loadRazorpayScript = () => {
@@ -36,18 +36,16 @@ const Checkout = () => {
   const [discount, setDiscount] = useState(0);
   const [appliedCoupon, setAppliedCoupon] = useState(null);
 
-  // --- ✅ SMART INITIALIZATION (Fixed Auto-Select) ---
+  // --- SMART INITIALIZATION ---
   const [formData, setFormData] = useState(() => {
       const savedUser = JSON.parse(localStorage.getItem('customerInfo') || '{}');
-      
-      // 🔥 FIX: 'tableNumber' uthao jo Home page ne QR scan karke set kiya tha
       const scannedTable = localStorage.getItem('tableNumber') || localStorage.getItem('activeTable') || '';
       
       return {
         customerName: name || savedUser.name || '',
         customerEmail: email || savedUser.email || '',
         customerPhone: contact || savedUser.phone || '', 
-        tableNumber: scannedTable, // ✅ Ye ab scanned table ko auto-fill karega
+        tableNumber: scannedTable, 
         notes: '',
         couponCode: '',
         paymentMethod: 'cash' 
@@ -56,11 +54,7 @@ const Checkout = () => {
 
   const gstAmount = Math.round(totalCartPrice * 0.05);
   const grandTotal = Math.max(0, totalCartPrice + gstAmount - discount);
-
-  // Backend Identity
   const myIdentity = userId || localStorage.getItem("sessionToken");
-  
-  // Local Storage Identity (For dropdown matching)
   const scannedTableNumber = localStorage.getItem('tableNumber');
 
   // 1. Fetch Data
@@ -71,7 +65,6 @@ const Checkout = () => {
         try {
             const res = await api.get('/tables'); 
             if(res.data.success) {
-                // Sirf Active tables dikhao
                 setTables(res.data.data.filter(t => t.isActive));
             }
         } catch (err) { console.error(err,"Failed to load tables"); }
@@ -104,14 +97,12 @@ const Checkout = () => {
     } finally { setCouponLoading(false); }
   };
 
-  // ✅ Helper: Save Details for Next Time
   const saveCustomerDetails = () => {
       localStorage.setItem('customerInfo', JSON.stringify({
           name: formData.customerName,
           phone: formData.customerPhone,
           email: formData.customerEmail
       }));
-      // Save Table so next time it is auto-selected
       localStorage.setItem('activeTable', formData.tableNumber);
   };
 
@@ -120,9 +111,7 @@ const Checkout = () => {
     if (!formData.tableNumber) return toast.error("Please select a Table");
     if (!formData.customerPhone) return toast.error("Contact number is required");
 
-    // Save details before making request
     saveCustomerDetails();
-
     setLoading(true);
 
     try {
@@ -140,7 +129,6 @@ const Checkout = () => {
         const { success, data, message } = response.data;
 
         if (success) {
-            // === CASH ===
             if (formData.paymentMethod === 'cash') {
                 toast.success(message || "Order Placed Successfully! 🍲");
                 dispatch(resetCart()); 
@@ -149,7 +137,6 @@ const Checkout = () => {
                 });
                 return;
             } 
-            // === ONLINE ===
             else if (formData.paymentMethod === 'razorpay') {
                 await handleRazorpayPayment(data);
             }
@@ -182,13 +169,11 @@ const Checkout = () => {
           name: "SavoryBites",
           description: `Order #${order.orderNumber}`,
           order_id: razorPayDetails.id, 
-          
           prefill: {
               name: formData.customerName,
               email: formData.customerEmail,
               contact: formData.customerPhone 
           },
-
           handler: async function (response) {
               try {
                   toast.info("Verifying Payment...");
@@ -222,143 +207,190 @@ const Checkout = () => {
       rzp.open();
   };
 
-  if (items.length === 0) return <div className="text-white text-center pt-20">Cart Empty</div>;
+  if (items.length === 0) return (
+    <div className="min-h-screen bg-[#020202] flex flex-col items-center justify-center text-center p-6">
+        <Receipt className="w-16 h-16 text-yellow-600/30 mb-4" />
+        <h2 className="text-2xl text-white font-cinzel font-bold">Your Cart is Empty</h2>
+        <p className="text-gray-500 mb-6">Looks like you haven't added anything yet.</p>
+        <button onClick={() => navigate('/')} className="px-8 py-3 bg-yellow-600 text-black font-bold rounded-lg hover:bg-yellow-500 transition">Browse Menu</button>
+    </div>
+  );
 
   return (
-    <div className="max-w-7xl mx-auto pb-20 px-4 pt-6">
-       <h1 className="text-3xl font-cinzel font-bold text-white mb-8">Finalize Order</h1>
-       
-       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-             {/* Guest Details */}
-             <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-6">
-                <h3 className="text-lg font-bold text-white mb-4 flex gap-2"><User className="text-yellow-500"/> Guest Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <input name="customerName" value={formData.customerName} onChange={handleChange} placeholder="Name" className="bg-black/50 border border-white/10 rounded-lg p-3 text-white" />
-                   <input name="customerPhone" value={formData.customerPhone} onChange={handleChange} placeholder="Phone *" className="bg-black/50 border border-white/10 rounded-lg p-3 text-white" />
-                   <input name="customerEmail" value={formData.customerEmail} onChange={handleChange} placeholder="Email (Optional)" className="bg-black/50 border border-white/10 rounded-lg p-3 text-white col-span-2" />
-                </div>
-             </section>
+    <>
+    <style>{`
+        .gold-border { border: 1px solid rgba(212, 175, 55, 0.2); }
+        .gold-glow:focus { box-shadow: 0 0 10px rgba(212, 175, 55, 0.2); border-color: rgba(212, 175, 55, 0.6); }
+    `}</style>
 
-             {/* Dining Info */}
-             <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-6">
-                <h3 className="text-lg font-bold text-white mb-4 flex gap-2"><UtensilsCrossed className="text-yellow-500"/> Dining Info</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <div className="relative">
-                      <label className="text-xs text-gray-500 uppercase block mb-2">Select Table *</label>
-                      <div className="relative">
-                        <Armchair className="absolute left-3 top-3 text-gray-500 w-5 h-5"/>
-                        <select 
-                            name="tableNumber" 
-                            value={formData.tableNumber} 
-                            onChange={handleChange}
-                            className="w-full bg-black/50 border border-white/10 rounded-lg p-3 pl-10 text-white appearance-none focus:border-yellow-500 outline-none cursor-pointer"
-                        >
-                            <option value="">-- Choose Table --</option>
-                            {tables.map(table => {
-                                // ✅ SMART LOGIC (Fixed for Auto-Select)
-                                
-                                // 1. Backend Identity Check
-                                const ownerId = table.currentOwner 
-                                    ? (typeof table.currentOwner === 'object' ? table.currentOwner._id : table.currentOwner) 
-                                    : null;
-                                const isBackendMatch = table.isOccupied && String(ownerId) === String(myIdentity);
-                                
-                                // 2. LocalStorage Check (Scanned Table)
-                                // Yahan hum check kar rahe hain ki kya ye table wahi hai jo humne scan kiya tha
-                                const isScannedMatch = String(table.tableNumber) === String(scannedTableNumber);
-
-                                // 3. Is it my table?
-                                const isMyTable = isBackendMatch || isScannedMatch;
-                                
-                                // 4. Selectable Logic
-                                const isSelectable = !table.isOccupied || isMyTable;
-
-                                let label = `Table ${table.tableNumber} (${table.capacity} Seats)`;
-                                if (isMyTable) label += " - (Your Table)";
-                                else if (table.isOccupied) label += " - Occupied";
-
-                                return (
-                                    <option 
-                                        key={table._id} 
-                                        value={table.tableNumber}
-                                        disabled={!isSelectable}
-                                        className={!isSelectable ? "text-gray-500 bg-gray-900" : "text-white bg-black"}
-                                    >
-                                        {label}
-                                    </option>
-                                );
-                            })}
-                        </select>
+    <div className="min-h-screen bg-[#020202] font-manrope selection:bg-yellow-500/30">
+       <div className="max-w-7xl mx-auto pb-24 px-4 pt-10">
+          
+          <div className="text-center mb-10">
+             <h1 className="text-3xl md:text-4xl font-cinzel font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#FDE68A] via-[#D4AF37] to-[#FDE68A] drop-shadow-sm mb-2">Finalize Your Order</h1>
+             <p className="text-gray-400 text-sm">Review your details and confirm to start cooking.</p>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+             
+             {/* LEFT SECTION: FORMS */}
+             <div className="lg:col-span-2 space-y-6">
+                
+                {/* Guest Details */}
+                <section className="bg-[#0a0a0a]/60 backdrop-blur-sm gold-border rounded-2xl p-6 md:p-8">
+                   <h3 className="text-xl font-cinzel font-bold text-white mb-6 flex items-center gap-3">
+                      <div className="p-2 bg-yellow-900/20 rounded-full"><User className="text-yellow-500 w-5 h-5"/></div> 
+                      Guest Details
+                   </h3>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div className="space-y-1">
+                         <label className="text-xs text-yellow-600 uppercase tracking-widest font-bold ml-1">Full Name</label>
+                         <input name="customerName" value={formData.customerName} onChange={handleChange} placeholder="John Doe" className="w-full bg-black/50 gold-border rounded-xl p-4 text-white placeholder-gray-600 focus:outline-none gold-glow transition-all" />
+                      </div>
+                      <div className="space-y-1">
+                         <label className="text-xs text-yellow-600 uppercase tracking-widest font-bold ml-1">Phone Number *</label>
+                         <input name="customerPhone" value={formData.customerPhone} onChange={handleChange} placeholder="9876543210" className="w-full bg-black/50 gold-border rounded-xl p-4 text-white placeholder-gray-600 focus:outline-none gold-glow transition-all" />
+                      </div>
+                      <div className="md:col-span-2 space-y-1">
+                         <label className="text-xs text-yellow-600 uppercase tracking-widest font-bold ml-1">Email Address (Optional)</label>
+                         <input name="customerEmail" value={formData.customerEmail} onChange={handleChange} placeholder="john@example.com" className="w-full bg-black/50 gold-border rounded-xl p-4 text-white placeholder-gray-600 focus:outline-none gold-glow transition-all" />
                       </div>
                    </div>
-                   <div>
-                      <label className="text-xs text-gray-500 uppercase block mb-2">Notes</label>
-                      <input name="notes" value={formData.notes} onChange={handleChange} placeholder="Less spicy..." className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-white" />
+                </section>
+
+                {/* Dining Info */}
+                <section className="bg-[#0a0a0a]/60 backdrop-blur-sm gold-border rounded-2xl p-6 md:p-8">
+                   <h3 className="text-xl font-cinzel font-bold text-white mb-6 flex items-center gap-3">
+                      <div className="p-2 bg-yellow-900/20 rounded-full"><UtensilsCrossed className="text-yellow-500 w-5 h-5"/></div> 
+                      Dining Info
+                   </h3>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div className="relative space-y-1">
+                         <label className="text-xs text-yellow-600 uppercase tracking-widest font-bold ml-1">Select Table *</label>
+                         <div className="relative">
+                           <Armchair className="absolute left-4 top-4 text-yellow-500/50 w-5 h-5"/>
+                           <select 
+                               name="tableNumber" 
+                               value={formData.tableNumber} 
+                               onChange={handleChange}
+                               className="w-full bg-black/50 gold-border rounded-xl p-4 pl-12 text-white appearance-none focus:outline-none gold-glow cursor-pointer"
+                           >
+                               <option value="">-- Choose Table --</option>
+                               {tables.map(table => {
+                                   const ownerId = table.currentOwner ? (typeof table.currentOwner === 'object' ? table.currentOwner._id : table.currentOwner) : null;
+                                   const isBackendMatch = table.isOccupied && String(ownerId) === String(myIdentity);
+                                   const isScannedMatch = String(table.tableNumber) === String(scannedTableNumber);
+                                   const isMyTable = isBackendMatch || isScannedMatch;
+                                   const isSelectable = !table.isOccupied || isMyTable;
+
+                                   let label = `Table ${table.tableNumber} (${table.capacity} Seats)`;
+                                   if (isMyTable) label += " - (Your Table)";
+                                   else if (table.isOccupied) label += " - Occupied";
+
+                                   return (
+                                       <option key={table._id} value={table.tableNumber} disabled={!isSelectable} className={!isSelectable ? "text-gray-600 bg-gray-900" : "text-white bg-black"}>
+                                           {label}
+                                       </option>
+                                   );
+                               })}
+                           </select>
+                         </div>
+                      </div>
+                      <div className="space-y-1">
+                         <label className="text-xs text-yellow-600 uppercase tracking-widest font-bold ml-1">Kitchen Notes</label>
+                         <input name="notes" value={formData.notes} onChange={handleChange} placeholder="Less spicy, allergy info..." className="w-full bg-black/50 gold-border rounded-xl p-4 text-white placeholder-gray-600 focus:outline-none gold-glow transition-all" />
+                      </div>
                    </div>
-                </div>
-             </section>
+                </section>
 
-             <section className="bg-[#0a0a0a] border border-white/10 rounded-xl p-6">
-                <h3 className="text-lg font-bold text-white mb-4 flex gap-2"><Wallet className="text-yellow-500"/> Payment</h3>
-                <div className="grid grid-cols-2 gap-4">
-                   <label className={`cursor-pointer border rounded-xl p-4 flex gap-3 ${formData.paymentMethod === 'cash' ? 'bg-yellow-900/20 border-yellow-500' : 'border-white/10'}`}>
-                      <input type="radio" name="paymentMethod" value="cash" checked={formData.paymentMethod === 'cash'} onChange={handleChange} className="accent-yellow-500" />
-                      <span className="text-white font-bold">Cash</span>
-                   </label>
-                   <label className={`cursor-pointer border rounded-xl p-4 flex gap-3 ${formData.paymentMethod === 'razorpay' ? 'bg-yellow-900/20 border-yellow-500' : 'border-white/10'}`}>
-                      <input type="radio" name="paymentMethod" value="razorpay" checked={formData.paymentMethod === 'razorpay'} onChange={handleChange} className="accent-yellow-500" />
-                      <span className="text-white font-bold">Online</span>
-                   </label>
-                </div>
-             </section>
-          </div>
+                <section className="bg-[#0a0a0a]/60 backdrop-blur-sm gold-border rounded-2xl p-6 md:p-8">
+                   <h3 className="text-xl font-cinzel font-bold text-white mb-6 flex items-center gap-3">
+                      <div className="p-2 bg-yellow-900/20 rounded-full"><Wallet className="text-yellow-500 w-5 h-5"/></div> 
+                      Payment Method
+                   </h3>
+                   <div className="grid grid-cols-2 gap-4">
+                      <label className={`cursor-pointer border rounded-xl p-5 flex flex-col items-center justify-center gap-2 transition-all duration-300 ${formData.paymentMethod === 'cash' ? 'bg-gradient-to-br from-yellow-900/40 to-black border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.1)]' : 'border-white/10 bg-black/40 hover:bg-white/5'}`}>
+                         <input type="radio" name="paymentMethod" value="cash" checked={formData.paymentMethod === 'cash'} onChange={handleChange} className="hidden" />
+                         <Banknote className={`w-8 h-8 ${formData.paymentMethod === 'cash' ? 'text-yellow-400' : 'text-gray-500'}`} />
+                         <span className={`font-bold ${formData.paymentMethod === 'cash' ? 'text-yellow-400' : 'text-gray-400'}`}>Pay Cash</span>
+                      </label>
+                      <label className={`cursor-pointer border rounded-xl p-5 flex flex-col items-center justify-center gap-2 transition-all duration-300 ${formData.paymentMethod === 'razorpay' ? 'bg-gradient-to-br from-yellow-900/40 to-black border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.1)]' : 'border-white/10 bg-black/40 hover:bg-white/5'}`}>
+                         <input type="radio" name="paymentMethod" value="razorpay" checked={formData.paymentMethod === 'razorpay'} onChange={handleChange} className="hidden" />
+                         <CreditCard className={`w-8 h-8 ${formData.paymentMethod === 'razorpay' ? 'text-yellow-400' : 'text-gray-500'}`} />
+                         <span className={`font-bold ${formData.paymentMethod === 'razorpay' ? 'text-yellow-400' : 'text-gray-400'}`}>Pay Online</span>
+                      </label>
+                   </div>
+                </section>
+             </div>
 
-          <div className="lg:col-span-1">
-              <div className="bg-[#0a0a0a]/80 border border-yellow-600/20 rounded-xl p-6 sticky top-24">
-                 <h3 className="text-xl font-cinzel font-bold text-white mb-4 border-b border-white/10 pb-4">Bill Summary</h3>
-                 <div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
-                    {items.map(i => (
-                       <div key={i.menuItemId} className="flex justify-between text-sm text-gray-400">
-                          <span>{i.quantity}x {i.name}</span>
-                          <span className="text-white">₹{i.total}</span>
+             {/* RIGHT SECTION: BILL */}
+             <div className="lg:col-span-1">
+                 <div className="bg-[#0a0a0a] gold-border rounded-2xl p-6 sticky top-24 shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-700 via-yellow-400 to-yellow-700"></div>
+                    
+                    <h3 className="text-xl font-cinzel font-bold text-white mb-6 pb-4 border-b border-dashed border-white/10 flex justify-between items-center">
+                        Bill Summary
+                        <Receipt className="text-gray-600 w-5 h-5" />
+                    </h3>
+                    
+                    <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                       {items.map(i => (
+                          <div key={i.menuItemId} className="flex justify-between items-start text-sm">
+                             <div className="flex flex-col">
+                                <span className="text-gray-300 font-medium">{i.name}</span>
+                                <span className="text-gray-600 text-xs">Qty: {i.quantity}</span>
+                             </div>
+                             <span className="text-white font-mono">₹{i.total}</span>
+                          </div>
+                       ))}
+                    </div>
+
+                    <div className="space-y-3 border-t border-dashed border-white/10 pt-4 mb-6">
+                       <div className="flex justify-between text-gray-400 text-sm"><span>Item Total</span><span className="font-mono">₹{totalCartPrice}</span></div>
+                       <div className="flex justify-between text-gray-400 text-sm"><span>GST (5%)</span><span className="font-mono">+ ₹{gstAmount}</span></div>
+                       {discount > 0 && (
+                          <div className="flex justify-between text-green-400 text-sm font-bold bg-green-900/10 p-2 rounded">
+                             <span className="flex items-center gap-1"><Sparkles className="w-3 h-3"/> Discount ({appliedCoupon})</span>
+                             <span className="font-mono">- ₹{discount}</span>
+                          </div>
+                       )}
+                    </div>
+                    
+                    {!appliedCoupon ? (
+                       <div className="flex gap-2 mb-6">
+                          <input name="couponCode" value={formData.couponCode} onChange={handleChange} placeholder="COUPON CODE" className="flex-1 bg-black border border-white/10 rounded-lg p-3 text-xs text-white uppercase focus:border-yellow-500 focus:outline-none transition-colors" />
+                          <button onClick={handleApplyCoupon} disabled={couponLoading} className="bg-white/10 hover:bg-yellow-600 hover:text-black text-yellow-500 px-4 rounded-lg text-xs font-bold border border-yellow-600/30 transition-all">APPLY</button>
                        </div>
-                    ))}
-                 </div>
-                 <div className="space-y-2 border-t border-white/10 pt-4 mb-4">
-                    <div className="flex justify-between text-gray-400 text-sm"><span>Item Total</span><span>₹{totalCartPrice}</span></div>
-                    <div className="flex justify-between text-gray-400 text-sm"><span>GST (5%)</span><span>+ ₹{gstAmount}</span></div>
-                    {discount > 0 && (
-                       <div className="flex justify-between text-green-500 text-sm font-bold">
-                          <span>Discount ({appliedCoupon})</span><span>- ₹{discount}</span>
+                    ) : (
+                       <div className="flex justify-between items-center bg-green-900/20 border border-green-500/30 p-3 rounded-lg mb-6">
+                          <span className="text-xs text-green-400 font-bold flex gap-2 items-center"><CheckCircle size={14}/> Coupon Applied</span>
+                          <button onClick={() => {setDiscount(0); setAppliedCoupon(null); setFormData({...formData, couponCode:''})}}><X size={16} className="text-gray-400 hover:text-white transition-colors"/></button>
                        </div>
                     )}
-                 </div>
-                 
-                 {!appliedCoupon ? (
-                    <div className="flex gap-2 mb-4">
-                       <input name="couponCode" value={formData.couponCode} onChange={handleChange} placeholder="COUPON CODE" className="flex-1 bg-black border border-white/20 rounded p-2 text-xs text-white uppercase" />
-                       <button onClick={handleApplyCoupon} disabled={couponLoading} className="bg-gray-800 text-yellow-500 px-3 rounded text-xs font-bold border border-gray-700">APPLY</button>
-                    </div>
-                 ) : (
-                    <div className="flex justify-between items-center bg-green-900/20 border border-green-500/30 p-2 rounded mb-4">
-                       <span className="text-xs text-green-400 font-bold flex gap-1"><CheckCircle size={14}/> Applied</span>
-                       <button onClick={() => {setDiscount(0); setAppliedCoupon(null); setFormData({...formData, couponCode:''})}}><X size={16} className="text-gray-400"/></button>
-                    </div>
-                 )}
 
-                 <div className="flex justify-between items-end border-t border-dashed border-yellow-600/30 py-4 mb-4">
-                    <span className="text-gray-300 font-bold">Grand Total</span>
-                    <span className="text-2xl font-bold text-yellow-500">₹{grandTotal}</span>
-                 </div>
+                    <div className="flex justify-between items-end border-t-2 border-yellow-600/20 pt-4 mb-6">
+                       <span className="text-gray-300 font-bold text-lg">Grand Total</span>
+                       <span className="text-3xl font-cinzel font-bold text-yellow-500 drop-shadow-md">₹{grandTotal}</span>
+                    </div>
 
-                 <button onClick={handlePlaceOrder} disabled={loading} className="w-full py-4 bg-yellow-600 hover:bg-yellow-500 text-black font-bold rounded-lg flex justify-center gap-2 transition-all">
-                    {loading ? <Loader2 className="animate-spin" /> : (formData.paymentMethod === 'razorpay' ? `Pay ₹${grandTotal}` : 'Confirm Order')}
-                 </button>
-              </div>
+                    <button 
+                        onClick={handlePlaceOrder} 
+                        disabled={loading} 
+                        className="group w-full py-4 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-bold text-lg rounded-xl shadow-[0_0_20px_rgba(234,179,8,0.3)] hover:shadow-[0_0_30px_rgba(234,179,8,0.5)] transition-all duration-300 flex items-center justify-center gap-2"
+                    >
+                       {loading ? <Loader2 className="animate-spin" /> : (
+                           <>
+                             {formData.paymentMethod === 'razorpay' ? 'Pay Securely' : 'Confirm Order'}
+                             <CheckCircle className="w-5 h-5 group-hover:scale-110 transition-transform"/>
+                           </>
+                       )}
+                    </button>
+                 </div>
+             </div>
           </div>
        </div>
     </div>
+    </>
   );
 };
 
