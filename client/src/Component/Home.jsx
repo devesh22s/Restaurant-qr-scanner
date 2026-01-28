@@ -5,7 +5,7 @@ import { addedTOCart, getCart } from '../redux/cartSlice';
 import { useToast } from '../context/ToastContext';
 import Hero from './Hero';
 import { ShoppingBag, Star, AlertCircle, Home as HomeIcon } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom'; 
+import { useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 
 const LoadingSkeleton = () => (
@@ -24,81 +24,58 @@ const Home = () => {
   const toast = useToast();
   
   const { menuItems, categories, loading, error, selectedCategory, searchQuery } = useSelector((state) => state.menu);
-  
-  // URL Params
   const [searchParams] = useSearchParams();
   const tableSlug = searchParams.get('table');
 
-  // ✅ Loop Breaker State
-  const [isQrError, setIsQrError] = useState(false);
-  
-  // ✅ API Lock
-  const isRequesting = useRef(false);
+  // ✅ Simple Error State
+  const [qrError, setQrError] = useState(false);
+  const dataFetched = useRef(false); // Double call check
 
   const [activeTable, setActiveTable] = useState(() => localStorage.getItem('tableNumber') || null);
 
-  // 🔥 CORE FIX: Native Browser History Logic
+  // ✅ 1. Very Simple Table Logic
   useEffect(() => {
-    // 1. Agar slug nahi hai, to kuch mat karo.
+    // Agar URL me table nahi hai, to bas ruk jao.
     if (!tableSlug) return;
 
-    // 2. Agar humne pehle hi dekh liya ki ye QR kharab hai (Session Storage check)
-    // To dobara API call mat karo, bas Error dikhao.
-    if (sessionStorage.getItem(`bad_qr_${tableSlug}`)) {
-        setIsQrError(true);
-        // URL se parameter hata do taaki refresh pe bhi loop na ho
-        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-        window.history.replaceState({path:newUrl},'',newUrl);
-        return;
-    }
+    // Agar hum pehle hi check kar chuke hain, to wapas mat karo
+    if (dataFetched.current) return;
 
-    // 3. Locking Mechanism
-    if (isRequesting.current) return;
-    isRequesting.current = true;
+    const verifyTable = async () => {
+      dataFetched.current = true; // Lock laga diya
 
-    const detectTable = async () => {
       try {
         const res = await api.get(`/tables/slug/${tableSlug}`);
         
         if (res.data.success) {
           const tableData = res.data.data;
+          // Valid Table
           localStorage.setItem('tableNumber', tableData.tableNumber);
           localStorage.setItem('tableId', tableData._id);
           setActiveTable(tableData.tableNumber);
           toast.success(`Welcome to Table ${tableData.tableNumber}`);
         }
       } catch (err) {
-        console.error("QR Failed:", err);
-
-        // 🛑 STOP LOGIC (React Router nahi use karenge)
+        console.error("QR Error:", err);
         
-        // A. Is QR ko blacklist karo
-        sessionStorage.setItem(`bad_qr_${tableSlug}`, "true");
-
-        // B. Error State Set karo
-        setIsQrError(true);
+        // 🛑 STOP: Bas Error State ON kar do.
+        // Hum URL change nahi karenge, Redirect nahi karenge.
+        // Isse Loop 100% Impossible hai.
+        setQrError(true);
         localStorage.removeItem('tableNumber');
         setActiveTable(null);
-
-        // C. 🔥 WINDOW HISTORY HACK (Yeh Loop kaat dega)
-        // Ye browser ke address bar ko bina page reload kiye saaf kar deta hai.
-        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-        window.history.replaceState({path:newUrl},'',newUrl);
-        
-      } finally {
-        isRequesting.current = false;
       }
     };
 
-    detectTable();
-  }, [tableSlug]); // Sirf tableSlug dependency hai
+    verifyTable();
+  }, [tableSlug]); // Dependency safe hai
 
-  // ✅ Menu Fetching
+  // ✅ 2. Menu Fetching
   useEffect(() => {
-    if (!isQrError) {
+    if (!qrError) {
         dispatch(fetchMenuItems(selectedCategory));
     }
-  }, [dispatch, selectedCategory, searchQuery, isQrError]);
+  }, [dispatch, selectedCategory, searchQuery, qrError]);
 
   const handleCategoryChange = (category) => dispatch(setSelectedCategory(category));
   
@@ -107,31 +84,23 @@ const Home = () => {
     catch (e) { toast.error("Failed"); }
   };
 
-  // 🚨 UI: Invalid QR Screen
-  if (isQrError) {
+  // 🚨 ERROR UI (Jab QR galat ho)
+  if (qrError) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-center">
-        <div className="bg-red-500/10 p-6 rounded-full mb-6 border border-red-500/20">
-            <AlertCircle className="w-16 h-16 text-red-500" />
-        </div>
-        <h2 className="text-3xl font-bold text-white mb-3 font-cinzel">QR Code Invalid</h2>
-        <p className="text-gray-400 mb-8 max-w-md">
-            This QR code does not exist in the database.
-        </p>
-        <button 
-          onClick={() => {
-             // Hard Reload to reset everything
-             window.location.href = window.location.origin;
-          }}
-          className="bg-yellow-600 text-black font-bold px-8 py-3 rounded-xl hover:bg-yellow-500 transition-all flex items-center gap-2"
-        >
-          <HomeIcon className="w-5 h-5" /> Go to Home
-        </button>
+        <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
+        <h2 className="text-2xl font-bold text-white mb-2">Invalid Table QR</h2>
+        <p className="text-gray-400 mb-6">Please scan a valid QR code provided by the staff.</p>
+        
+        {/* Simple Button: User khud click karega tabhi hatega */}
+        <a href="/" className="bg-yellow-600 text-black font-bold px-6 py-3 rounded-lg flex items-center gap-2">
+           <HomeIcon size={20}/> Go to Home
+        </a>
       </div>
     );
   }
 
-  if (loading) return <div className="space-y-8"><div className="py-20 text-center text-white">Loading...</div><LoadingSkeleton /></div>;
+  if (loading) return <div className="space-y-8"><div className="text-center text-white py-20">Loading...</div><LoadingSkeleton /></div>;
 
   return (
     <div>
@@ -139,6 +108,7 @@ const Home = () => {
       <div id="menu-section" className="space-y-8 pt-12 pb-20">
         <div className="text-center"><h1 className="text-3xl font-bold text-white">Our Menu</h1></div>
         
+        {/* Categories */}
         {categories.length > 0 && (
           <div className="flex flex-wrap justify-center gap-3 px-4">
             {categories.map((cat) => (
@@ -147,6 +117,7 @@ const Home = () => {
           </div>
         )}
 
+        {/* Items */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 px-4 mt-8">
             {menuItems.map((item) => (
               <div key={item._id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
