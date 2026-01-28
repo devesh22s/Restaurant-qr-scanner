@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom"; // ✅ Added useSearchParams
 import { register } from "../redux/authSlice";
-import { useNavigate } from "react-router-dom";
+import api from "../lib/api"; // ✅ Added API import for verification
 import {
   UserPlus,
   ArrowRight,
@@ -17,10 +17,14 @@ import {
   CheckCircle2
 } from "lucide-react";
 
-
 export default function Register() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   const dispatch = useDispatch();
+  
+  // ✅ 1. URL se Table Slug nikalo
+  const [searchParams] = useSearchParams();
+  const tableSlug = searchParams.get('table');
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -28,6 +32,34 @@ export default function Register() {
     contact: "",
   });
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  // ✅ 2. Table Verification Logic (New Addition)
+  // Jaise hi page load hoga, ye check karega ki URL me table hai ya nahi
+  useEffect(() => {
+    if (tableSlug) {
+      const verifyAndSaveTable = async () => {
+        try {
+          // Table verify karo
+          const res = await api.get(`/tables/slug/${tableSlug}`);
+          
+          if (res.data.success) {
+            const tableData = res.data.data;
+            
+            // LocalStorage me save kar lo
+            localStorage.setItem('tableNumber', tableData.tableNumber);
+            localStorage.setItem('tableId', tableData._id);
+            localStorage.setItem('activeTable', tableData.tableNumber); 
+            
+            console.log("Table successfully linked:", tableData.tableNumber);
+          }
+        } catch (err) {
+          console.error("Table verification failed on Register page:", err);
+          // Agar fail ho jaye to user ko manually select karna padega baad me
+        }
+      };
+      verifyAndSaveTable();
+    }
+  }, [tableSlug]);
 
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -37,19 +69,28 @@ export default function Register() {
 
   const handleSubmit = async(e) => {
     e.preventDefault();
-   if (formData.password !== confirmPassword) {
-    alert("Passwords do not match");
-    return;
-}
+    if (formData.password !== confirmPassword) {
+      alert("Passwords do not match");
+      return;
+    }
 
-const result = await dispatch(register(formData));
+    const result = await dispatch(register(formData));
 
-  if (result.meta.requestStatus === "fulfilled") {
-    navigate('/login');
-  } else {
-    alert("Registration failed");
-  }
-
+    if (result.meta.requestStatus === "fulfilled") {
+      // ✅ Redirect Logic
+      // Agar table URL me thi, to seedha 'Home' ya 'Checkout' par bhejo
+      // Agar nahi thi, to 'Login' par bhejo
+      if (tableSlug) {
+          // Auto login usually requires backend to return token on register
+          // For now, let's send to login but user expects flow continuity.
+          // Better UX: Send to login with redirect param, OR (if your backend logs in on register) go home.
+          navigate('/login'); 
+      } else {
+          navigate('/login');
+      }
+    } else {
+      alert("Registration failed");
+    }
   };
 
   return (
@@ -68,7 +109,6 @@ const result = await dispatch(register(formData));
             -webkit-text-fill-color: transparent;
           }
           
-          /* Custom Scrollbar for the benefits section if needed */
           ::-webkit-scrollbar { width: 6px; }
           ::-webkit-scrollbar-track { background: #050505; }
           ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }

@@ -21,15 +21,15 @@ import { useToast } from "../context/ToastContext";
 
 const Welcome = () => {
   const [searchParams] = useSearchParams();
-  const getqrSlug = searchParams.get("qr");
-  
+const tableSlug = searchParams.get("table");
+
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const toast = useToast();
 
   const handleContinueAsGuest = async () => {
     try {
-        await dispatch(createSession({ deviceId: "web_client", qrSlug: getqrSlug })).unwrap();
+        await dispatch(createSession({ deviceId: "web_client", qrSlug: tableSlug })).unwrap();
         
         localStorage.setItem("guestMode", "true");
         
@@ -137,8 +137,9 @@ const Welcome = () => {
             {/* ACTION BUTTONS (Enhanced) */}
             <div className="space-y-4 mb-10">
               {/* PRIMARY: REGISTER */}
-              <Link
-                to="/register"
+             <Link
+                // 🔥 CHANGE IS HERE: pass slug in Register link 
+                to={`/register${tableSlug ? `?table=${tableSlug}` : ''}`}
                 className="group relative w-full py-4 bg-gradient-to-r from-[#BF953F] via-[#FCF6BA] to-[#B38728] rounded-sm shadow-[0_5px_15px_rgba(0,0,0,0.5)] overflow-hidden flex items-center justify-center transition-transform active:scale-[0.98]"
               >
                 {/* Shine Effect */}
@@ -155,8 +156,9 @@ const Welcome = () => {
               </Link>
 
               {/* SECONDARY: LOGIN */}
-              <Link
-                to="/login"
+             <Link
+                // 🔥 CHANGE IS HERE: Login link me bhi pass karein
+                to={`/login${tableSlug ? `?table=${tableSlug}` : ''}`}
                 className="group relative w-full py-4 bg-transparent border border-[#BF953F]/40 rounded-sm flex items-center justify-center overflow-hidden transition-all duration-300 hover:border-[#BF953F] hover:bg-[#BF953F]/10"
               >
                 <div className="relative flex items-center gap-3 text-[#e2cf9d] group-hover:text-[#FCF6BA] transition-colors">
