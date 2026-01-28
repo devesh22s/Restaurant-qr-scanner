@@ -15,9 +15,10 @@ router.get("/", getAllTable);
 // 3. Delete Table (Admin Only) - ✅ NEW
 router.delete("/:id", verify, checkRole(["admin"]), deleteTable);
 
-// 4. Get Table by Slug (Public/Guest) - Isko last me rakhein
-router.get("/:slug", getTableBySlug);
-
-
+// 4. admin clear the table
 router.put("/:id/free", verify, checkRole(["admin"]), freeTable);
+
+// 5. Get Table by Slug (Public/Guest)
+router.get("/slug/:slug", getTableBySlug);
+
 export default router;
