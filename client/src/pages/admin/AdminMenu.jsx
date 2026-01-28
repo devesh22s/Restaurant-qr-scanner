@@ -1,22 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../lib/api';
-import { Plus, Search, Edit2, Trash2, Image as ImageIcon, X, UploadCloud } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Image as ImageIcon, X, UploadCloud, Loader2 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 
 const AdminMenu = () => {
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Modal & Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Save button loading state
+  const [editId, setEditId] = useState(null); // Agar ye set hai, to Edit Mode hai
   const toast = useToast();
 
-  // --- FORM STATE ---
   const [formData, setFormData] = useState({
     name: "",
     price: "",
     category: "",
     description: "",
-    image: null // File object ke liye
+    image: null 
   });
   const [preview, setPreview] = useState(null);
 
@@ -48,14 +51,37 @@ const AdminMenu = () => {
     const file = e.target.files[0];
     if (file) {
         setFormData({ ...formData, image: file });
-        setPreview(URL.createObjectURL(file)); // Show preview immediately
+        setPreview(URL.createObjectURL(file)); 
     }
   };
 
+  // ✅ NEW: Handle Edit Button Click
+  const handleEdit = (item) => {
+      setFormData({
+          name: item.name,
+          price: item.price,
+          category: item.category,
+          description: item.description || "",
+          image: null // Reset file, purana image preview me dikhega
+      });
+      setPreview(item.image); // Purana image dikhao
+      setEditId(item._id); // ID set karo taaki pata chale edit ho raha hai
+      setIsModalOpen(true);
+  };
+
+  // ✅ NEW: Handle Close / Reset
+  const handleCloseModal = () => {
+      setIsModalOpen(false);
+      setFormData({ name: "", price: "", category: "", description: "", image: null });
+      setPreview(null);
+      setEditId(null); // Reset ID
+  };
+
+  // ✅ UPDATED: Handle Submit (Create + Update logic)
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     
-    // 1. FormData create karo (Image upload ke liye zaroori hai)
     const data = new FormData();
     data.append("name", formData.name);
     data.append("price", formData.price);
@@ -66,26 +92,32 @@ const AdminMenu = () => {
     }
 
     try {
-        // 2. API Call (Backend must support Multer/File Upload)
-        const res = await api.post('/menu', data, {
-            headers: { "Content-Type": "multipart/form-data" }
-        });
+        let res;
+        const config = { headers: { "Content-Type": "multipart/form-data" } };
+
+        if (editId) {
+            // 🔥 UPDATE API CALL (PUT)
+            res = await api.put(`/menu/${editId}`, data, config);
+        } else {
+            // 🔥 CREATE API CALL (POST)
+            res = await api.post('/menu', data, config);
+        }
 
         if (res.data.success) {
-            toast.success("Menu Item Added!");
-            setIsModalOpen(false);
-            setFormData({ name: "", price: "", category: "", description: "", image: null });
-            setPreview(null);
-            fetchMenu(); // Refresh List
+            toast.success(editId ? "Item Updated Successfully! 🍲" : "Menu Item Added! 🍔");
+            handleCloseModal();
+            fetchMenu(); // List refresh
         }
     } catch (error) {
         console.error(error);
-        toast.error(error.response?.data?.message || "Failed to add item");
+        toast.error(error.response?.data?.message || "Operation failed");
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (id) => {
-      if(!window.confirm("Are you sure?")) return;
+      if(!window.confirm("Are you sure you want to delete this item?")) return;
       try {
           await api.delete(`/menu/${id}`);
           toast.success("Item Deleted");
@@ -95,7 +127,6 @@ const AdminMenu = () => {
       }
   };
 
-  // --- FILTER ---
   const filteredMenu = menuItems.filter(item => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.category.toLowerCase().includes(searchTerm.toLowerCase())
@@ -134,8 +165,8 @@ const AdminMenu = () => {
 
       {/* Menu Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {loading ? <p className="text-white">Loading...</p> : filteredMenu.map((item) => (
-          <div key={item._id} className="bg-[#111625] border border-gray-800 rounded-xl overflow-hidden group hover:border-yellow-600/40 transition-all">
+        {loading ? <p className="text-white text-center col-span-full">Loading Menu...</p> : filteredMenu.map((item) => (
+          <div key={item._id} className="bg-[#111625] border border-gray-800 rounded-xl overflow-hidden group hover:border-yellow-600/40 transition-all flex flex-col">
             <div className="h-40 w-full bg-gray-900 relative">
               {item.image ? (
                 <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
@@ -146,19 +177,23 @@ const AdminMenu = () => {
                 {item.category}
               </span>
             </div>
-            <div className="p-4">
+            <div className="p-4 flex-1 flex flex-col">
               <div className="flex justify-between items-start mb-2">
                 <h3 className="text-white font-bold truncate pr-2">{item.name}</h3>
                 <span className="text-yellow-500 font-mono font-bold">₹{item.price}</span>
               </div>
-              <p className="text-gray-500 text-xs line-clamp-2 h-8 mb-4">{item.description}</p>
-              <div className="flex gap-2 border-t border-gray-800 pt-3">
-                <button className="flex-1 flex items-center justify-center gap-2 bg-[#0b0f19] text-gray-400 hover:text-yellow-500 py-2 rounded text-xs font-bold">
+              <p className="text-gray-500 text-xs line-clamp-2 mb-4 flex-1">{item.description}</p>
+              
+              <div className="flex gap-2 border-t border-gray-800 pt-3 mt-auto">
+                <button 
+                    onClick={() => handleEdit(item)}
+                    className="flex-1 flex items-center justify-center gap-2 bg-[#0b0f19] text-gray-400 hover:text-yellow-500 py-2 rounded text-xs font-bold transition-colors"
+                >
                   <Edit2 size={14} /> Edit
                 </button>
                 <button 
                     onClick={() => handleDelete(item._id)}
-                    className="flex-1 flex items-center justify-center gap-2 bg-[#0b0f19] text-gray-400 hover:text-red-500 py-2 rounded text-xs font-bold"
+                    className="flex-1 flex items-center justify-center gap-2 bg-[#0b0f19] text-gray-400 hover:text-red-500 py-2 rounded text-xs font-bold transition-colors"
                 >
                   <Trash2 size={14} /> Delete
                 </button>
@@ -168,15 +203,17 @@ const AdminMenu = () => {
         ))}
       </div>
 
-      {/* --- ADD ITEM MODAL --- */}
+      {/* --- ADD/EDIT ITEM MODAL --- */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
             <div className="bg-[#111625] w-full max-w-lg rounded-2xl border border-gray-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
                 
                 {/* Header */}
                 <div className="flex justify-between items-center p-6 border-b border-gray-800">
-                    <h3 className="text-xl font-bold text-white font-cinzel">Add Menu Item</h3>
-                    <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white"><X /></button>
+                    <h3 className="text-xl font-bold text-white font-cinzel">
+                        {editId ? "Edit Menu Item" : "Add New Item"}
+                    </h3>
+                    <button onClick={handleCloseModal} className="text-gray-400 hover:text-white"><X /></button>
                 </div>
 
                 {/* Form */}
@@ -219,7 +256,7 @@ const AdminMenu = () => {
                                 value={formData.price} 
                                 onChange={handleInputChange}
                                 className="w-full bg-[#0b0f19] border border-gray-700 rounded-lg p-3 text-white mt-1 focus:border-yellow-500 outline-none" 
-                                placeholder="e.g. 350"
+                                placeholder="350"
                                 required 
                             />
                         </div>
@@ -249,13 +286,17 @@ const AdminMenu = () => {
                             value={formData.description} 
                             onChange={handleInputChange}
                             className="w-full bg-[#0b0f19] border border-gray-700 rounded-lg p-3 text-white mt-1 focus:border-yellow-500 outline-none h-24 resize-none" 
-                            placeholder="Short description of the dish..."
+                            placeholder="Short description..."
                         />
                     </div>
 
                     <div className="pt-2">
-                        <button type="submit" className="w-full bg-yellow-600 hover:bg-yellow-500 text-black font-bold py-3.5 rounded-lg transition-colors shadow-lg">
-                            Save Item
+                        <button 
+                            type="submit" 
+                            disabled={isSubmitting}
+                            className="w-full bg-yellow-600 hover:bg-yellow-500 text-black font-bold py-3.5 rounded-lg transition-colors shadow-lg flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isSubmitting ? <Loader2 className="animate-spin w-5 h-5" /> : (editId ? "Update Item" : "Save Item")}
                         </button>
                     </div>
                 </form>
