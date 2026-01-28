@@ -27,6 +27,7 @@ const Checkout = () => {
   const toast = useToast();
 
   const { items, totalCartPrice } = useSelector((state) => state.cart);
+  // Redux se User Details
   const { name, email, contact, userId } = useSelector((state) => state.auth);
 
   const [loading, setLoading] = useState(false);
@@ -38,10 +39,12 @@ const Checkout = () => {
 
   // --- SMART INITIALIZATION ---
   const [formData, setFormData] = useState(() => {
+      // LocalStorage se purana data uthao (Guest ke liye)
       const savedUser = JSON.parse(localStorage.getItem('customerInfo') || '{}');
       const scannedTable = localStorage.getItem('tableNumber') || localStorage.getItem('activeTable') || '';
       
       return {
+        // Redux > LocalStorage > Empty
         customerName: name || savedUser.name || '',
         customerEmail: email || savedUser.email || '',
         customerPhone: contact || savedUser.phone || '', 
@@ -56,6 +59,19 @@ const Checkout = () => {
   const grandTotal = Math.max(0, totalCartPrice + gstAmount - discount);
   const myIdentity = userId || localStorage.getItem("sessionToken");
   const scannedTableNumber = localStorage.getItem('tableNumber');
+
+  // ✅ NEW FIX: Sync Redux State to Form Data
+  // Jaise hi Redux me data load hoga, ye form update kar dega
+  useEffect(() => {
+    if (name || email || contact) {
+        setFormData((prev) => ({
+            ...prev,
+            customerName: name || prev.customerName, // Agar Redux me hai to wo lo, nahi to purana
+            customerEmail: email || prev.customerEmail,
+            customerPhone: contact || prev.customerPhone
+        }));
+    }
+  }, [name, email, contact]);
 
   // 1. Fetch Data
   useEffect(() => {
@@ -98,6 +114,7 @@ const Checkout = () => {
   };
 
   const saveCustomerDetails = () => {
+      // Order place karte waqt details save kar lo agli baar ke liye
       localStorage.setItem('customerInfo', JSON.stringify({
           name: formData.customerName,
           phone: formData.customerPhone,
@@ -221,6 +238,11 @@ const Checkout = () => {
     <style>{`
         .gold-border { border: 1px solid rgba(212, 175, 55, 0.2); }
         .gold-glow:focus { box-shadow: 0 0 10px rgba(212, 175, 55, 0.2); border-color: rgba(212, 175, 55, 0.6); }
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #111; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #D4AF37; }
     `}</style>
 
     <div className="min-h-screen bg-[#020202] font-manrope selection:bg-yellow-500/30">
