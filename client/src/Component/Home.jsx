@@ -24,58 +24,72 @@ const Home = () => {
   const toast = useToast();
   
   const { menuItems, categories, loading, error, selectedCategory, searchQuery } = useSelector((state) => state.menu);
+  
+  // URL Params
   const [searchParams] = useSearchParams();
   const tableSlug = searchParams.get('table');
 
-  // ✅ Simple Error State
-  const [qrError, setQrError] = useState(false);
-  const dataFetched = useRef(false); // Double call check
+  // ✅ FIX 1: State ko shuru me hi initialize karo (useEffect se bahar)
+  // Ye wo "Calling setState synchronously" wala error 100% hata dega
+  const [activeTable, setActiveTable] = useState(() => {
+    return localStorage.getItem('tableNumber') || null;
+  });
 
-  const [activeTable, setActiveTable] = useState(() => localStorage.getItem('tableNumber') || null);
+  // ✅ FIX 2: Error State (Loop Breaker)
+  const [isQrError, setIsQrError] = useState(false);
+  const isRequesting = useRef(false);
 
-  // ✅ 1. Very Simple Table Logic
+  // ✅ 3. Table Detection Logic
   useEffect(() => {
-    // Agar URL me table nahi hai, to bas ruk jao.
+    // Agar URL me table nahi hai, to chupchap baitho (No Loop)
     if (!tableSlug) return;
 
-    // Agar hum pehle hi check kar chuke hain, to wapas mat karo
-    if (dataFetched.current) return;
+    // Agar humne pehle hi Error dekh liya hai, to wapas API call mat karo (No Loop)
+    if (isQrError) return;
 
-    const verifyTable = async () => {
-      dataFetched.current = true; // Lock laga diya
+    // Agar request chal rahi hai, to wait karo
+    if (isRequesting.current) return;
+
+    const detectTable = async () => {
+      isRequesting.current = true;
 
       try {
         const res = await api.get(`/tables/slug/${tableSlug}`);
         
         if (res.data.success) {
           const tableData = res.data.data;
-          // Valid Table
+          
+          // Data mila? Save karo
           localStorage.setItem('tableNumber', tableData.tableNumber);
           localStorage.setItem('tableId', tableData._id);
           setActiveTable(tableData.tableNumber);
+          
           toast.success(`Welcome to Table ${tableData.tableNumber}`);
         }
       } catch (err) {
         console.error("QR Error:", err);
-        
-        // 🛑 STOP: Bas Error State ON kar do.
-        // Hum URL change nahi karenge, Redirect nahi karenge.
-        // Isse Loop 100% Impossible hai.
-        setQrError(true);
+
+        // 🔥 THE KILLER FIX:
+        // Yahan hum koi Redirect ya URL change NAHI kar rahe.
+        // Hum bas "Error UI" dikhayenge. React chupchap ruk jayega.
+        setIsQrError(true);
         localStorage.removeItem('tableNumber');
         setActiveTable(null);
+      } finally {
+        isRequesting.current = false;
       }
     };
 
-    verifyTable();
-  }, [tableSlug]); // Dependency safe hai
+    detectTable();
+  }, [tableSlug]); // ⚠️ Dependency array me sirf tableSlug rakho
 
-  // ✅ 2. Menu Fetching
+  // ✅ 4. Menu Fetching Logic
   useEffect(() => {
-    if (!qrError) {
+    // Agar QR error hai to Menu load mat karo (Resources bachao)
+    if (!isQrError) {
         dispatch(fetchMenuItems(selectedCategory));
     }
-  }, [dispatch, selectedCategory, searchQuery, qrError]);
+  }, [dispatch, selectedCategory, searchQuery, isQrError]);
 
   const handleCategoryChange = (category) => dispatch(setSelectedCategory(category));
   
@@ -84,23 +98,37 @@ const Home = () => {
     catch (e) { toast.error("Failed"); }
   };
 
-  // 🚨 ERROR UI (Jab QR galat ho)
-  if (qrError) {
+  // 🚨 UI: STATIC ERROR SCREEN (No Auto-Redirect)
+  // Jab tak user khud button nahi dabayega, page reload nahi hoga.
+  if (isQrError) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-center">
-        <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
-        <h2 className="text-2xl font-bold text-white mb-2">Invalid Table QR</h2>
-        <p className="text-gray-400 mb-6">Please scan a valid QR code provided by the staff.</p>
+        <div className="bg-red-500/10 p-6 rounded-full mb-6 border border-red-500/20">
+            <AlertCircle className="w-16 h-16 text-red-500" />
+        </div>
+        <h2 className="text-3xl font-bold text-white mb-3 font-cinzel">QR Code Invalid</h2>
+        <p className="text-gray-400 mb-8 max-w-md">
+            This QR code is not recognized by the system.
+        </p>
         
-        {/* Simple Button: User khud click karega tabhi hatega */}
-        <a href="/" className="bg-yellow-600 text-black font-bold px-6 py-3 rounded-lg flex items-center gap-2">
-           <HomeIcon size={20}/> Go to Home
+        {/* User Manual Reset Button */}
+        <a 
+          href="/" 
+          onClick={(e) => {
+             e.preventDefault();
+             // Manual Clean History
+             window.history.replaceState({}, document.title, "/");
+             window.location.reload();
+          }}
+          className="bg-yellow-600 text-black font-bold px-8 py-3 rounded-xl hover:bg-yellow-500 transition-all flex items-center gap-2"
+        >
+          <HomeIcon className="w-5 h-5" /> Go to Home
         </a>
       </div>
     );
   }
 
-  if (loading) return <div className="space-y-8"><div className="text-center text-white py-20">Loading...</div><LoadingSkeleton /></div>;
+  if (loading) return <div className="space-y-8"><div className="py-20 text-center text-white">Loading...</div><LoadingSkeleton /></div>;
 
   return (
     <div>
@@ -108,7 +136,6 @@ const Home = () => {
       <div id="menu-section" className="space-y-8 pt-12 pb-20">
         <div className="text-center"><h1 className="text-3xl font-bold text-white">Our Menu</h1></div>
         
-        {/* Categories */}
         {categories.length > 0 && (
           <div className="flex flex-wrap justify-center gap-3 px-4">
             {categories.map((cat) => (
@@ -117,7 +144,6 @@ const Home = () => {
           </div>
         )}
 
-        {/* Items */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 px-4 mt-8">
             {menuItems.map((item) => (
               <div key={item._id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
