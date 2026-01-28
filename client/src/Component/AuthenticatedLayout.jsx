@@ -25,21 +25,21 @@ const AuthenticatedLayout = ({ children }) => {
   // Local State
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // ✅ New State for Mobile Search Bar
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery || "");
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
-  // --- 1. DETERMINE USER IDENTITY (UI FIX) ---
+  // --- 1. DETERMINE USER IDENTITY ---
   const storedUser = JSON.parse(localStorage.getItem("user") || "null");
-  
-  // Logic: Agar Redux me hai, ya LocalStorage me hai, to wo User hai. Warna Guest.
   const currentUserName = user?.name || storedUser?.name || "Guest"; 
   const currentUserEmail = user?.email || storedUser?.email || "";
-  const currentRole = user?.role || storedUser?.role || "guest"; // Default role guest
+  const currentRole = user?.role || storedUser?.role || "guest"; 
   
-  // Admin Check
   const isAdmin = currentRole === "admin";
   const isGuest = currentRole === "guest" && !localStorage.getItem('accessToken');
-
   const cartItemCount = items.reduce((total, item) => total + item.quantity, 0);
 
   // --- 2. GUEST TOKEN GENERATOR ---
@@ -55,23 +55,19 @@ const AuthenticatedLayout = ({ children }) => {
   // --- 3. AUTH & CART FETCH ---
   useEffect(() => {
     const verifySession = async () => {
-      // Case A: User Redux me pehle se hai
       if (user && user._id) {
         setIsAuthChecking(false);
-        dispatch(getCart()); // Fetch cart
+        dispatch(getCart());
         return;
       }
 
       const storedRefreshToken = localStorage.getItem("refreshToken");
-
-      // Case B: Guest User (No refresh token)
       if (!storedRefreshToken) {
           setIsAuthChecking(false);
-          dispatch(getCart()); // Fetch guest cart
+          dispatch(getCart());
           return;
       }
 
-      // Case C: User reload hua hai -> Verify Token
       try {
         const { data } = await api.post('/auth/refresh-token', {
             refreshToken: storedRefreshToken
@@ -83,30 +79,24 @@ const AuthenticatedLayout = ({ children }) => {
              role: data.user.role,
              accessToken: data.accessToken 
           }));
-          
           localStorage.setItem("role", data.user.role);
           localStorage.setItem("user", JSON.stringify(data.user));
           localStorage.setItem("accessToken", data.accessToken);
-          
-          dispatch(getCart()); // Fetch user cart
+          dispatch(getCart());
         }
       } catch (error) {
-        console.log(error,"Startup session check failed. Redirecting to login.");
-        // Sab kuch saaf karo (Siwaye sessionToken ke, agar guest cart bachana ho)
         localStorage.removeItem("user");
         localStorage.removeItem("role");
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
-
+        console.log(error);
         
-        dispatch(logout());  // Redux clear
+        dispatch(logout());
         navigate("/login");
-      
       } finally {
         setIsAuthChecking(false);
       }
     };
-
     verifySession();
   }, [dispatch, navigate]); 
 
@@ -124,7 +114,7 @@ const AuthenticatedLayout = ({ children }) => {
   };
 
   const handleLogout = async () => {
-    try { await api.post('/auth/logout'); } catch (e) {e.message}
+    try { await api.post('/auth/logout'); } catch (e) { console.log(e) /* ignore */ }
     dispatch(logout());
     localStorage.clear();
     toast.success("Logged out successfully");
@@ -167,7 +157,7 @@ const AuthenticatedLayout = ({ children }) => {
                 </div>
               </div>
 
-              {/* SEARCH BAR */}
+              {/* DESKTOP SEARCH BAR */}
               <div className="hidden md:flex flex-1 max-w-md mx-8">
                 <div className="relative w-full group">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-yellow-600/70 group-focus-within:text-yellow-500 transition-colors" />
@@ -187,8 +177,16 @@ const AuthenticatedLayout = ({ children }) => {
               </div>
 
               {/* RIGHT ACTIONS */}
-              <div className="flex items-center gap-4 sm:gap-6">
+              <div className="flex items-center gap-2 sm:gap-6">
                 
+                {/* ✅ MOBILE SEARCH ICON TOGGLE */}
+                <button 
+                  onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)} 
+                  className="md:hidden p-2 text-yellow-600 hover:text-yellow-400 transition-transform active:scale-95"
+                >
+                  <Search className="w-6 h-6 stroke-[1.5]" />
+                </button>
+
                 {/* CART */}
                 <button className="relative p-2 text-yellow-600 hover:text-yellow-400 transition-transform hover:scale-105 active:scale-95" onClick={() => navigate("/cart")}>
                   <ShoppingCart className="w-6 h-6 stroke-[1.5]" />
@@ -197,12 +195,12 @@ const AuthenticatedLayout = ({ children }) => {
                   )}
                 </button>
 
-                {/* MOBILE MENU TOGGLE */}
-                <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden text-yellow-500 hover:text-yellow-300 transition-colors p-1">
+                {/* MOBILE MENU TOGGLE (Hamburger) */}
+                <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden text-yellow-500 hover:text-yellow-300 transition-colors p-1 ml-1">
                   {isMobileMenuOpen ? <X className="w-7 h-7" /> : <Menu className="w-7 h-7" />}
                 </button>
 
-                {/* PROFILE DROPDOWN */}
+                {/* DESKTOP PROFILE DROPDOWN */}
                 <div className="hidden md:block relative">
                   <button onClick={() => setIsProfileOpen(!isProfileOpen)} className={`flex items-center gap-3 px-3 py-1.5 rounded-full border transition-all duration-300 ${isProfileOpen ? "bg-yellow-900/10 border-yellow-500/50" : "bg-transparent border-transparent hover:border-yellow-600/30"}`}>
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-700 to-yellow-900 p-[1px]">
@@ -246,9 +244,80 @@ const AuthenticatedLayout = ({ children }) => {
               </div>
             </div>
           </div>
-          
-          {/* Mobile Menu Logic Same... */}
-          {/* ... (Mobile menu code) ... */}
+
+          {/* ✅ MOBILE SEARCH BAR (SLIDE DOWN EFFECT) */}
+          <div className={`md:hidden absolute top-20 left-0 w-full bg-[#0a0a0a] border-b border-yellow-600/20 shadow-2xl transition-all duration-300 ease-in-out z-40 ${isMobileSearchOpen ? "max-h-24 opacity-100 translate-y-0" : "max-h-0 opacity-0 -translate-y-4 pointer-events-none"}`}>
+             <div className="p-4">
+               <div className="relative w-full group">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-yellow-600/70" />
+                  <input
+                    type="text"
+                    placeholder="Search dishes..."
+                    value={localSearchQuery}
+                    onChange={handleSearchChange}
+                    className="w-full pl-10 pr-10 py-3 bg-black/50 border border-yellow-600/20 rounded-xl text-yellow-50 placeholder-gray-600 focus:outline-none focus:border-yellow-500/50 transition-all text-sm"
+                  />
+                  {/* Close Search Button inside Input */}
+                  {localSearchQuery ? (
+                     <button onClick={() => { setLocalSearchQuery(""); dispatch(setSearchQuery("")); }} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-yellow-500 transition-colors">
+                       <X className="w-4 h-4" />
+                     </button>
+                  ) : (
+                     <button onClick={() => setIsMobileSearchOpen(false)} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-red-500 transition-colors">
+                       <X className="w-4 h-4" />
+                     </button>
+                  )}
+               </div>
+             </div>
+          </div>
+
+          {/* MOBILE MENU (DROPDOWN) - WITHOUT SEARCH */}
+          <div className={`md:hidden absolute top-20 left-0 w-full bg-[#050505]/95 backdrop-blur-xl border-b border-yellow-600/20 overflow-hidden transition-all duration-300 ease-in-out z-30 ${isMobileMenuOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"}`}>
+             <div className="p-6 space-y-6">
+                
+                {/* Mobile Profile Card */}
+                <div className="bg-gradient-to-br from-yellow-900/10 to-transparent border border-yellow-600/20 rounded-xl p-4 flex items-center gap-4">
+                   <div className="w-12 h-12 rounded-full bg-gradient-to-br from-yellow-700 to-yellow-900 p-[1px] shrink-0">
+                      <div className="w-full h-full rounded-full bg-black flex items-center justify-center">
+                         <User className="w-6 h-6 text-yellow-500" />
+                      </div>
+                   </div>
+                   <div className="overflow-hidden">
+                      <p className="text-sm font-cinzel font-bold text-yellow-100 truncate">{currentUserName}</p>
+                      <p className="text-[10px] text-yellow-600/80 uppercase tracking-wider">{currentRole}</p>
+                      {currentUserEmail && <p className="text-[10px] text-gray-500 truncate">{currentUserEmail}</p>}
+                   </div>
+                </div>
+
+                {/* Mobile Actions */}
+                <div className="grid gap-3">
+                    {!isGuest && (
+                       <button 
+                         onClick={() => { navigate("/orders"); setIsMobileMenuOpen(false); }} 
+                         className="flex items-center gap-3 px-4 py-3.5 text-sm font-medium text-gray-200 bg-white/5 rounded-xl hover:bg-yellow-900/20 border border-transparent hover:border-yellow-600/30 transition-all"
+                       >
+                          <ClipboardList className="w-5 h-5 text-yellow-500" /> My Orders
+                       </button>
+                    )}
+                    
+                    {isGuest ? (
+                       <button 
+                         onClick={() => { navigate("/login"); setIsMobileMenuOpen(false); }} 
+                         className="flex items-center gap-3 px-4 py-3.5 text-sm font-medium text-yellow-400 bg-yellow-900/10 rounded-xl hover:bg-yellow-900/20 border border-yellow-600/30 transition-all"
+                       >
+                          <User className="w-5 h-5" /> Login / Register
+                       </button>
+                    ) : (
+                       <button 
+                         onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }} 
+                         className="flex items-center gap-3 px-4 py-3.5 text-sm font-medium text-red-400 bg-red-500/10 rounded-xl hover:bg-red-500/20 border border-transparent hover:border-red-500/30 transition-all"
+                       >
+                          <LogOut className="w-5 h-5" /> Logout
+                       </button>
+                    )}
+                </div>
+             </div>
+          </div>
         </header>
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full relative z-0">

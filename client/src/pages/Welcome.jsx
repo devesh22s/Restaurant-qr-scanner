@@ -12,9 +12,10 @@ import {
   Sparkles,
   ChevronRight,
   Star,
+  Tag, // ✅ Added Icon for Offer
+  Gift // ✅ Added Icon for Offer
 } from "lucide-react";
 import { useDispatch } from "react-redux";
-// FIX 1: Import 'createSession' instead of 'session'
 import { createSession } from "../redux/guestSlice"; 
 import { useToast } from "../context/ToastContext";
 
@@ -28,7 +29,6 @@ const Welcome = () => {
 
   const handleContinueAsGuest = async () => {
     try {
-        // FIX 2: Use 'createSession' here
         await dispatch(createSession({ deviceId: "web_client", qrSlug: getqrSlug })).unwrap();
         
         localStorage.setItem("guestMode", "true");
@@ -64,6 +64,17 @@ const Welcome = () => {
             background: linear-gradient(#050505, #050505) padding-box,
                         linear-gradient(135deg, rgba(212, 175, 55, 0.4), rgba(212, 175, 55, 0.1), rgba(212, 175, 55, 0.4)) border-box;
           }
+
+          /* Shimmer Animation for Offer */
+          @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
+          }
+          .animate-shimmer {
+            animation: shimmer 2s infinite linear;
+            background: linear-gradient(to right, transparent 0%, rgba(212, 175, 55, 0.1) 50%, transparent 100%);
+            background-size: 1000px 100%;
+          }
         `}
       </style>
 
@@ -87,7 +98,7 @@ const Welcome = () => {
 
           <div className="gold-border-gradient rounded-2xl shadow-2xl backdrop-blur-sm bg-black/60 pt-10 pb-8 px-8">
             {/* Header Text */}
-            <div className="text-center mb-10 space-y-2">
+            <div className="text-center mb-8 space-y-2">
               <h1 className="font-cinzel text-4xl font-bold gold-gradient-text tracking-wider drop-shadow-sm">
                 SavoryBites
               </h1>
@@ -103,6 +114,26 @@ const Welcome = () => {
               </p>
             </div>
 
+            {/* ✅ NEW: EXCLUSIVE OFFER BANNER */}
+            <div className="relative mb-8 group overflow-hidden rounded-lg border border-yellow-500/30 bg-[#0F0F0F]">
+               {/* Animated Shine Background */}
+               <div className="absolute inset-0 animate-shimmer"></div>
+               
+               <div className="relative p-3 flex items-center justify-center gap-3 text-center">
+                  <div className="bg-yellow-500/10 p-1.5 rounded-full border border-yellow-500/20">
+                    <Gift className="w-4 h-4 text-yellow-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-300 font-manrope tracking-wide">
+                      Register now to unlock
+                    </p>
+                    <p className="text-sm font-bold text-yellow-400 font-cinzel tracking-wider">
+                      FLAT 30% OFF ON ORDER
+                    </p>
+                  </div>
+               </div>
+            </div>
+
             {/* ACTION BUTTONS (Enhanced) */}
             <div className="space-y-4 mb-10">
               {/* PRIMARY: REGISTER */}
@@ -115,9 +146,11 @@ const Welcome = () => {
 
                 <div className="relative flex items-center gap-3 text-[#291d0a]">
                   <UserPlus className="w-5 h-5 stroke-[2.5]" />
-                  <span className="font-cinzel font-bold tracking-wide text-base">
-                    Register Now
-                  </span>
+                  <div className="flex flex-col items-start leading-none">
+                    <span className="font-cinzel font-bold tracking-wide text-base">
+                      Register & Claim Offer
+                    </span>
+                  </div>
                 </div>
               </Link>
 
