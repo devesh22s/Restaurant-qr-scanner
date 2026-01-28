@@ -20,7 +20,7 @@ api.interceptors.request.use((config) => {
       sessionToken = `guest-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       localStorage.setItem('sessionToken', sessionToken);
   }
-
+  
   // Session Token (Always send for cart continuity)
   if (sessionToken) {
     config.headers['x-session-token'] = sessionToken;
@@ -30,7 +30,7 @@ api.interceptors.request.use((config) => {
 }, (error) => {
   return Promise.reject(error);
 });
-
+  
 // 2. RESPONSE INTERCEPTOR (Auto Logout Logic)
 api.interceptors.response.use(
   (response) => response,
