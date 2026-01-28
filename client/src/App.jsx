@@ -40,8 +40,8 @@ const App = () => {
           {/* =========================================
               1. PUBLIC / GUEST ROUTES
           ========================================= */}
+          <Route path="/" element={<Welcome />} />
           <Route path="/welcome" element={<Welcome />} />
-          <Route path="/welcome/:id" element={<Welcome />} />
           
           <Route
             path="/register"
@@ -76,7 +76,7 @@ const App = () => {
           ========================================= */}
           {/* Ye saare pages AuthenticatedLayout ke andar khulenge */}
           <Route element={<AuthenticatedLayout />}>
-            <Route path="/" element={<Home />} />
+            
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/order-success" element={<OrderSuccess />} />

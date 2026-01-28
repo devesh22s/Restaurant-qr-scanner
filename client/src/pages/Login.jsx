@@ -65,7 +65,7 @@ export default function Login() {
         if (payload.data.role === 'admin') {
            navigate('/admin/dashboard', { replace: true });
         } else {
-           navigate('/', { replace: true });
+           navigate('/menu', { replace: true });
         }
         // --- FIX ENDS HERE ---
       })

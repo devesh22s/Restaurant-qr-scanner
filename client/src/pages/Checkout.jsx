@@ -27,27 +27,26 @@ const Checkout = () => {
   const toast = useToast();
 
   const { items, totalCartPrice } = useSelector((state) => state.cart);
-  // Redux se User Details
-  const { name, email, contact, userId } = useSelector((state) => state.auth);
+  
+  // ✅ AUTH SLICE SE USER NIKALA
+  const { user } = useSelector((state) => state.auth);
 
   const [loading, setLoading] = useState(false);
   const [couponLoading, setCouponLoading] = useState(false);
   const [tables, setTables] = useState([]); 
-  
   const [discount, setDiscount] = useState(0);
   const [appliedCoupon, setAppliedCoupon] = useState(null);
 
-  // --- SMART INITIALIZATION ---
+  // --- INITIALIZATION ---
   const [formData, setFormData] = useState(() => {
-      // LocalStorage se purana data uthao (Guest ke liye)
       const savedUser = JSON.parse(localStorage.getItem('customerInfo') || '{}');
       const scannedTable = localStorage.getItem('tableNumber') || localStorage.getItem('activeTable') || '';
       
+      // ✅ PRIORITY: Redux (User) > LocalStorage (Guest) > Empty
       return {
-        // Redux > LocalStorage > Empty
-        customerName: name || savedUser.name || '',
-        customerEmail: email || savedUser.email || '',
-        customerPhone: contact || savedUser.phone || '', 
+        customerName: user?.name || savedUser.name || '',
+        customerEmail: user?.email || savedUser.email || '',
+        customerPhone: user?.contact || savedUser.phone || '', // 'contact' aapke register form se match hona chahiye
         tableNumber: scannedTable, 
         notes: '',
         couponCode: '',
@@ -57,21 +56,20 @@ const Checkout = () => {
 
   const gstAmount = Math.round(totalCartPrice * 0.05);
   const grandTotal = Math.max(0, totalCartPrice + gstAmount - discount);
-  const myIdentity = userId || localStorage.getItem("sessionToken");
+  const myIdentity = user?._id || localStorage.getItem("sessionToken");
   const scannedTableNumber = localStorage.getItem('tableNumber');
 
-  // ✅ NEW FIX: Sync Redux State to Form Data
-  // Jaise hi Redux me data load hoga, ye form update kar dega
+  // ✅ AUTO-FILL EFFECT (Agar page reload ho aur Redux late load ho)
   useEffect(() => {
-    if (name || email || contact) {
-        setFormData((prev) => ({
+    if (user) {
+        setFormData(prev => ({
             ...prev,
-            customerName: name || prev.customerName, // Agar Redux me hai to wo lo, nahi to purana
-            customerEmail: email || prev.customerEmail,
-            customerPhone: contact || prev.customerPhone
+            customerName: user.name || prev.customerName,
+            customerEmail: user.email || prev.customerEmail,
+            customerPhone: user.contact || prev.customerPhone // Make sure backend returns 'contact'
         }));
     }
-  }, [name, email, contact]);
+  }, [user]);
 
   // 1. Fetch Data
   useEffect(() => {
@@ -114,7 +112,6 @@ const Checkout = () => {
   };
 
   const saveCustomerDetails = () => {
-      // Order place karte waqt details save kar lo agli baar ke liye
       localStorage.setItem('customerInfo', JSON.stringify({
           name: formData.customerName,
           phone: formData.customerPhone,
@@ -152,7 +149,6 @@ const Checkout = () => {
                 navigate('/order-success', { 
                     state: { orderId: data._id || data.orderId, orderNumber: data.orderNumber } 
                 });
-                return;
             } 
             else if (formData.paymentMethod === 'razorpay') {
                 await handleRazorpayPayment(data);
@@ -229,7 +225,7 @@ const Checkout = () => {
         <Receipt className="w-16 h-16 text-yellow-600/30 mb-4" />
         <h2 className="text-2xl text-white font-cinzel font-bold">Your Cart is Empty</h2>
         <p className="text-gray-500 mb-6">Looks like you haven't added anything yet.</p>
-        <button onClick={() => navigate('/')} className="px-8 py-3 bg-yellow-600 text-black font-bold rounded-lg hover:bg-yellow-500 transition">Browse Menu</button>
+        <button onClick={() => navigate('/menu')} className="px-8 py-3 bg-yellow-600 text-black font-bold rounded-lg hover:bg-yellow-500 transition">Browse Menu</button>
     </div>
   );
 
@@ -238,7 +234,6 @@ const Checkout = () => {
     <style>{`
         .gold-border { border: 1px solid rgba(212, 175, 55, 0.2); }
         .gold-glow:focus { box-shadow: 0 0 10px rgba(212, 175, 55, 0.2); border-color: rgba(212, 175, 55, 0.6); }
-        /* Custom Scrollbar */
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #111; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }

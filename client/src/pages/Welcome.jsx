@@ -34,7 +34,7 @@ const tableSlug = searchParams.get("table");
         localStorage.setItem("guestMode", "true");
         
         toast.success("Welcome! You are browsing as a Guest.");
-        navigate("/"); 
+        navigate("/menu"); 
         
     } catch (error) {
         console.error("Session creation failed", error);

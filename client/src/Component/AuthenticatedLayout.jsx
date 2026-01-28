@@ -147,7 +147,7 @@ const AuthenticatedLayout = ({ children }) => {
             <div className="flex items-center justify-between h-20">
               
               {/* LOGO */}
-              <div onClick={() => navigate('/')} className="flex items-center gap-3 group cursor-pointer z-50">
+              <div onClick={() => navigate('/menu')} className="flex items-center gap-3 group cursor-pointer z-50">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-900 to-black border border-yellow-600/40 flex items-center justify-center shadow-[0_0_15px_rgba(212,175,55,0.15)] group-hover:border-yellow-500 transition-colors duration-300">
                   <UtensilsCrossed className="w-5 h-5 text-yellow-500" />
                 </div>
