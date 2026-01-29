@@ -68,7 +68,7 @@ const Cart = () => {
           Looks like you haven't made your choice yet.
         </p>
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/menu")}
           className="group relative px-8 py-3 bg-gradient-to-r from-[#BF953F] via-[#FCF6BA] to-[#B38728] text-[#291d0a] font-bold rounded-sm shadow-lg overflow-hidden transition-transform active:scale-95"
         >
           <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>

@@ -46,7 +46,7 @@ const OrderSuccess = () => {
             {/* Action Buttons */}
             <div className="space-y-3">
                 <button 
-                    onClick={() => navigate('/')}
+                    onClick={() => navigate('/menu')}
                     className="w-full py-3.5 bg-yellow-600 hover:bg-yellow-500 text-black font-bold rounded-lg transition-all flex items-center justify-center gap-2 group"
                 >
                     <Home className="w-4 h-4" /> Go to Home
