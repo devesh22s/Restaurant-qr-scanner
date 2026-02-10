@@ -1,4 +1,4 @@
-import { login, refreshToken, register, resetPassword, searchAccount, sendOtp } from '../controller/authController.js';
+import { login, refreshToken, register, resetPassword, searchAccount, sendOtp, googleAuth } from '../controller/authController.js';
 import express from 'express'
 import SessionTokenVerfiy from '../middleware/SessionTokenVerify.js';
 const router = express.Router();
@@ -18,5 +18,7 @@ router.post('/convert', SessionTokenVerfiy, (req, res)=>{
     console.log("hello");
     
 })
+
+router.post('/google', googleAuth);
 
 export default router

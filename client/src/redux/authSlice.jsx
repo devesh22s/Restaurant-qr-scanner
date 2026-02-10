@@ -1,5 +1,7 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import api from '../lib/api'; 
+import { auth, googleProvider } from '../config/firebase'; 
+import { signInWithPopup } from 'firebase/auth';
 
 // HELPER: Get User from Storage
 const getUserFromStorage = () => {
@@ -33,6 +35,23 @@ export const register = createAsyncThunk('/auth/register', async (data, thunkApi
     return thunkApi.rejectWithValue(errorMessage);
   }
 });
+
+
+export const googleLogin = createAsyncThunk('/auth/google', async (_, thunkApi) => {
+    try {
+        // 1. Popup Open
+        const result = await signInWithPopup(auth, googleProvider);
+        // 2. Get ID Token
+        const idToken = await result.user.getIdToken();
+        // 3. Send to Backend
+        const res = await api.post('/auth/google', { idToken });
+        return res.data;
+    } catch (error) {
+        const errorMessage = error.response?.data?.message || error.message || 'Google Sign-In failed.';
+        return thunkApi.rejectWithValue(errorMessage);
+    }
+});
+
 
 // --- SLICE ---
 const authSlice = createSlice({
@@ -98,7 +117,25 @@ const authSlice = createSlice({
         .addCase(register.rejected, (state, action) => {
             state.error = action.payload;
             state.loading = false;
-        });
+        })
+
+
+
+        // GOOGLE CASES 
+        .addCase(googleLogin.pending, (state) => { state.loading = true; state.error = null; })
+        .addCase(googleLogin.fulfilled, (state, action) => {
+            const { data, accessToken, refreshToken } = action.payload;
+            state.user = data;
+            state.role = data.role;
+            state.accessToken = accessToken;
+            state.loading = false;
+            localStorage.setItem("accessToken", accessToken);
+            localStorage.setItem("refreshToken", refreshToken);
+            localStorage.setItem("role", data.role);
+            localStorage.setItem("user", JSON.stringify(data)); 
+        })
+        .addCase(googleLogin.rejected, (state, action) => { state.error = action.payload; state.loading = false; })
+    
     }
 });
 

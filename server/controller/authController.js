@@ -4,7 +4,7 @@ import { generatAccessToken, generatRefershToken } from "../utils/jwt.js";
 import transporter from "../services/emailServices.js";
 import registerTemplate from "../services/templates/registerTemplate.js";
 import myModel from '../model/User.js'; 
-
+import admin from "../config/firebaseAdmin.js";
 // ==========================================
 // 1. REGISTER
 // ==========================================
@@ -245,5 +245,76 @@ export const resetPassword = async (req, res) => {
     } catch (error) {
         console.error("Reset Error:", error);
         res.status(500).json({ message: error.message });
+    }
+};
+
+
+
+
+// ==========================================
+// 7. GOOGLE AUTH (New)
+// ==========================================
+export const googleAuth = async (req, res) => {
+    try {
+        const { idToken } = req.body;
+
+        // 1. Verify Token with Firebase
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        const { email, name, uid, picture } = decodedToken;
+
+        // 2. Check if user exists
+        let user = await myModel.findOne({ email });
+
+        if (user) {
+            // LOGIN LOGIC
+            const accessToken = generatAccessToken({ 
+                name: user.name, email: user.email, role: user.role, id: user._id 
+            });
+            const refreshToken = generatRefershToken({ 
+                name: user.name, email: user.email, role: user.role, id: user._id 
+            });
+
+            user.refreshToken = refreshToken;
+            await user.save();
+
+            return res.status(200).json({
+                success: true,
+                message: "Google Login Successful",
+                data: user,
+                accessToken,
+                refreshToken
+            });
+        } else {
+            // REGISTER LOGIC
+            const newUser = await myModel.create({
+                name: name,
+                email: email,
+                passwordHash: await bcrypt.hash(uid, 12), // Dummy password (UID)
+                contact: "", // Contact baad me user update karega
+                role: "customer",
+                isVerified: true
+            });
+
+            const accessToken = generatAccessToken({ 
+                name: newUser.name, email: newUser.email, role: newUser.role, id: newUser._id 
+            });
+            const refreshToken = generatRefershToken({ 
+                name: newUser.name, email: newUser.email, role: newUser.role, id: newUser._id 
+            });
+
+            newUser.refreshToken = refreshToken;
+            await newUser.save();
+
+            return res.status(201).json({
+                success: true,
+                message: "Account Created via Google",
+                data: newUser,
+                accessToken,
+                refreshToken
+            });
+        }
+    } catch (error) {
+        console.error("Google Auth Error:", error);
+        res.status(401).json({ success: false, message: "Invalid Google Token" });
     }
 };
