@@ -71,7 +71,7 @@ const Orders = () => {
         </div>
         <h2 className="text-2xl font-cinzel font-bold text-white mb-2">No Orders Yet</h2>
         <p className="text-gray-400 mb-6 font-manrope text-sm">Delicious food is just a click away.</p>
-        <button onClick={() => navigate('/')} className="px-8 py-3 bg-yellow-600 hover:bg-yellow-500 text-black font-bold rounded-lg shadow-lg hover:shadow-yellow-500/20 transition-all font-cinzel">Browse Menu</button>
+        <button onClick={() => navigate('/menu')} className="px-8 py-3 bg-yellow-600 hover:bg-yellow-500 text-black font-bold rounded-lg shadow-lg hover:shadow-yellow-500/20 transition-all font-cinzel">Browse Menu</button>
       </div>
     );
   }

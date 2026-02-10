@@ -252,7 +252,7 @@ export const resetPassword = async (req, res) => {
 
 
 // ==========================================
-// 7. GOOGLE AUTH (New)
+// 7. GOOGLE AUTH (Updated)
 // ==========================================
 export const googleAuth = async (req, res) => {
     try {
@@ -266,7 +266,7 @@ export const googleAuth = async (req, res) => {
         let user = await myModel.findOne({ email });
 
         if (user) {
-            // LOGIN LOGIC
+            // --- LOGIN LOGIC (Existing User) ---
             const accessToken = generatAccessToken({ 
                 name: user.name, email: user.email, role: user.role, id: user._id 
             });
@@ -285,7 +285,7 @@ export const googleAuth = async (req, res) => {
                 refreshToken
             });
         } else {
-            // REGISTER LOGIC
+            // --- REGISTER LOGIC (New User) ---
             const newUser = await myModel.create({
                 name: name,
                 email: email,
@@ -294,6 +294,21 @@ export const googleAuth = async (req, res) => {
                 role: "customer",
                 isVerified: true
             });
+
+            // ✅ EMAIL SENDING LOGIC (Ye Naya Code Hai 👇)
+            try {
+                await transporter.sendMail({
+                    from: 'SavouryBites <devesh262004@gmail.com>', // Apna email check karlena
+                    to: newUser.email,
+                    subject: "Welcome to SavouryBites! 🎉",
+                    html: registerTemplate(newUser.name, "SavouryBites"), 
+                });
+                console.log("Google Signup Email Sent to:", newUser.email);
+            } catch (err) {
+                console.log("Google Signup Email Error:", err.message);
+                // Error aane par process mat roko, bas log kar do
+            }
+            // ✅ (Code Ends Here)
 
             const accessToken = generatAccessToken({ 
                 name: newUser.name, email: newUser.email, role: newUser.role, id: newUser._id 

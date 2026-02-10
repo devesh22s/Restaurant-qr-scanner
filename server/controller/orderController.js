@@ -8,7 +8,7 @@ import myModel from "../model/User.js";
 import Table from "../model/table.js"; 
 import { SuccessResponse, ErrorResponse } from "../utils/responseWrapper.js";
 
-// Razorpay Init (Safe)
+// ... (Razorpay Init & generateOrderNumber same as before) ...
 let razorpay;
 try {
     const keyId = process.env.RAZORPAY_API_KEY || process.env.RAZORPAY_KEY_ID;
@@ -20,10 +20,10 @@ try {
 
 const generateOrderNumber = () => `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-// ==========================================
-// 1. PLACE ORDER (Unified)
-// ==========================================
+// ... (placeOrder function SAME as before) ...
 export const placeOrder = async (req, res, next) => {
+  // ... (Apka purana placeOrder code yahan same rahega) ...
+  // (Main poora code repeat nahi kar raha space bachane ke liye, bas neeche naya function dekhein)
   try {
     const { 
       couponCode, paymentMethod, tableNumber, 
@@ -65,16 +65,16 @@ export const placeOrder = async (req, res, next) => {
     if (couponCode) {
       const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
       if (coupon) {
-         const currentDate = new Date();
-         if(currentDate >= new Date(coupon.validFrom) && currentDate <= new Date(coupon.validTo)) {
-             if (coupon.discountType === 'percentage') {
-                 discountAmount = (subTotal * coupon.discountValue) / 100;
-                 if(coupon.maxDiscount) discountAmount = Math.min(discountAmount, coupon.maxDiscount);
-             } else {
-                 discountAmount = coupon.discountValue;
-             }
-             appliedCouponId = coupon._id;
-         }
+          const currentDate = new Date();
+          if(currentDate >= new Date(coupon.validFrom) && currentDate <= new Date(coupon.validTo)) {
+              if (coupon.discountType === 'percentage') {
+                  discountAmount = (subTotal * coupon.discountValue) / 100;
+                  if(coupon.maxDiscount) discountAmount = Math.min(discountAmount, coupon.maxDiscount);
+              } else {
+                  discountAmount = coupon.discountValue;
+              }
+              appliedCouponId = coupon._id;
+          }
       }
     }
     if (discountAmount > subTotal) discountAmount = subTotal;
@@ -98,21 +98,14 @@ export const placeOrder = async (req, res, next) => {
       couponCode: appliedCouponId ? couponCode : null,
     };
 
-    // ============================
-    // CASE A: CASH PAYMENT
-    // ============================
+    // CASE A: CASH
     if (paymentMethodLower === 'cash') {
         const newOrder = await Order.create(orderData);
-        
-        // Cash me hum turant Cart Khali karenge aur Table Occupy karenge
-        await handlePostOrderActions(req, newOrder, cart, appliedCouponId, tableNumber, type, id, finalAmount, true); // true = Clear Cart
-        
+        await handlePostOrderActions(req, newOrder, cart, appliedCouponId, tableNumber, type, id, finalAmount, true); 
         return SuccessResponse(res, 201, newOrder, "Order Placed Successfully");
     }
 
-    // ============================
-    // CASE B: RAZORPAY (ONLINE)
-    // ============================
+    // CASE B: RAZORPAY
     else if (paymentMethodLower === 'razorpay') {
         if (!razorpay) return ErrorResponse(res, 500, "Online payment system is down.");
 
@@ -127,10 +120,7 @@ export const placeOrder = async (req, res, next) => {
         orderData.razorPayOrderId = razorpayOrder.id;
         
         const newOrder = await Order.create(orderData);
-
-        // 🚨 IMPORTANT: Online me hum ABHI Cart khali NAHI karenge. 
-        // Table reserve kar lete hain, par cart verification pe khali hoga.
-        await handlePostOrderActions(req, newOrder, cart, appliedCouponId, tableNumber, type, id, finalAmount, false); // false = Don't Clear Cart yet
+        await handlePostOrderActions(req, newOrder, cart, appliedCouponId, tableNumber, type, id, finalAmount, false); 
 
         const keyId = process.env.RAZORPAY_API_KEY || process.env.RAZORPAY_KEY_ID;
 
@@ -152,9 +142,7 @@ export const placeOrder = async (req, res, next) => {
   }
 };
 
-// ==========================================
-// 2. VERIFY PAYMENT (Modified to Clear Cart)
-// ==========================================
+// ... (verifyPayment, handlePostOrderActions, getAdminStats, markOrderAsPaid, updateOrderStatus SAME as before) ...
 export const verifyPayment = async (req, res, next) => {
     try {
         const { razorPayOrderId, razorPayPaymentId, razorPaySignature } = req.body;
@@ -196,34 +184,24 @@ export const verifyPayment = async (req, res, next) => {
     } catch (error) { next(error); }
 };
 
-// --- Helper Actions (Modified) ---
 const handlePostOrderActions = async (req, order, cart, couponId, tableNum, userType, userId, amount, shouldClearCart) => {
-    // 1. Update Coupon Usage
     if (couponId) await Coupon.findByIdAndUpdate(couponId, { $inc: { usedCount: 1 } });
-
-    // 2. Mark Table Occupied & Set Owner
     if (tableNum) {
-        // ✅ FIX: Force convert to String before saving
         const ownerId = userType === 'user' ? String(userId) : String(req.identity.id);
-        
         await Table.findOneAndUpdate(
             { tableNumber: tableNum }, 
             { isOccupied: true, currentOwner: ownerId }
         );
     }
-
-    // 3. Notify Kitchen
     try {
         const io = req.app.get('io');
         if(io) io.emit('order', { type: 'NEW_ORDER', data: order });
     } catch (err) { }
 
-    // 4. Clear Cart (Conditional)
     if (shouldClearCart) {
         cart.items = [];
         cart.totalCartPrice = 0;
         await cart.save();
-        
         if (userType === 'user') {
             try {
                 await myModel.findByIdAndUpdate(userId, { $inc: { totalOrders: 1, totalSpend: amount } });
@@ -232,7 +210,6 @@ const handlePostOrderActions = async (req, order, cart, couponId, tableNum, user
     }
 };
 
-// ... (Baaki functions - getAdminStats, markOrderAsPaid etc waisa hi rakhein) ...
 export const getAdminStats = async (req, res, next) => {
     try {
         const revenueData = await Order.aggregate([
@@ -273,18 +250,73 @@ export const markOrderAsPaid = async (req, res) => {
     } catch (error) { res.status(500).json({ message: error.message }); }
 };
 
+// ==========================================
+// ✅ 3. DELETE ORDER (New Feature)
+// ==========================================
+export const deleteOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // Sirf wahi order delete karo jo 'pending' payment waale hain
+        // Taki galti se paid order delete na ho
+        const order = await Order.findOneAndDelete({ 
+            _id: id, 
+            paymentStatus: { $in: ['pending', 'failed'] } // Allow failed too
+        });
+        
+        if (!order) {
+            return res.status(404).json({ success: false, message: "Order not found or already paid" });
+        }
+        
+        // Agar table occupy ho gayi thi is order se, to use free mat karo
+        // Kyunki banda shayad wahi baitha hai aur Cash order karne wala hai.
+        // Isliye Table Free logic yahan nahi lagayenge.
+
+        return res.status(200).json({ success: true, message: "Cancelled order deleted" });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// ==========================================
+// ✅ 4. GET ALL ORDERS (Updated Filter)
+// ==========================================
 export const getAllOrders = async (req, res, next) => {
     try {
-        const orders = await Order.find().sort({ createdAt: -1 }).populate('items.menuItemId');
+        // 🔥 Filter: Show All CASH orders + Only PAID Online Orders
+        // "Pending Online Orders" ko admin panel se chhupa do
+        const orders = await Order.find({
+            $or: [
+                { paymentMethod: 'cash' }, // Cash wale saare dikhao
+                { paymentMethod: 'razorpay', paymentStatus: 'success' }, // Online wale sirf success
+                { paymentMethod: 'razorpay', paymentStatus: 'failed' } // Failed wale bhi dikha sakte ho (optional)
+            ]
+        }).sort({ createdAt: -1 }).populate('items.menuItemId');
+        
         res.status(200).json({ success: true, orders });
     } catch (error) { next(error); }
 };
 
+// ==========================================
+// ✅ 5. GET MY ORDERS (Updated Filter)
+// ==========================================
 export const getMyOrders = async (req, res, next) => {
     try {
         const { type, id } = req.identity; 
-        let query = type === 'user' ? { userId: id } : { sessionToken: id };
-        const orders = await Order.find(query).sort({ createdAt: -1 }).populate('items.menuItemId'); 
+        
+        // 🔥 Filter applied here too for Customer
+        const orders = await Order.find({
+            $and: [
+                { $or: [ { userId: id }, { sessionToken: id } ] }, // User match
+                { 
+                    $or: [
+                        { paymentMethod: 'cash' }, 
+                        { paymentMethod: 'razorpay', paymentStatus: 'success' }
+                    ] 
+                }
+            ]
+        }).sort({ createdAt: -1 }).populate('items.menuItemId'); 
+
         return res.status(200).json({ success: true, orders });
     } catch (error) { next(error); }
 };
