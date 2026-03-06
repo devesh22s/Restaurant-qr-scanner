@@ -140,16 +140,6 @@ JWT_SECRET=your_secret_key
 
 ---
 
-## 📸 Screenshots  
-> Add screenshots after deployment  
-(I can design premium screenshots too.)
-
----
-
-## 🎥 Demo GIF  
-> Add a GIF showing the QR flow  
-(If you want, I will generate a smooth animation.)
-
 ---
 
 ## 🗺️ Roadmap  
@@ -173,7 +163,4 @@ Full Stack Developer
 GitHub: https://github.com/devesh22s  
 
 ---
-
-## 📜 License  
-This project is licensed under the **MIT License**.
 
