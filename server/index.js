@@ -1,9 +1,9 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
-import http from 'http'; // ✅ New
-import { Server } from 'socket.io'; // ✅ New
-import helmet from 'helmet'; // ✅ Security
+import http from 'http'; 
+import { Server } from 'socket.io'; 
+// import helmet from 'helmet'; // Disabled temporarily for Google Auth popup testing
 import dbconnect from './config/database.js';
 
 // Models
@@ -27,28 +27,40 @@ import orderRouter from './routes/order.route.js';
 
 dotenv.config();
 const app = express();
-const server = http.createServer(app); // ✅ Server wrapping
+const server = http.createServer(app); 
 
 // Middleware
-// app.use(helmet({
-//   crossOriginOpenerPolicy: false,
-//   crossOriginResourcePolicy: { policy: "cross-origin" }
-// })); // ✅ Security Headers
 app.use(express.json());
+
+// CORS Setup
 const corsOptions = {
-  origin: ['https://restaurant-qr-scanner.vercel.app' , "http://localhost:5173"],
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'https://restaurant-qr-scanner.vercel.app',
+      'http://localhost:5173'
+    ];
+    // Allow requests with no origin (mobile apps, Postman)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS: ' + origin));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200 
 };
 
 app.use(cors(corsOptions));
 
-app.options('*', cors(corsOptions));
+// ✅ THE MAIN FIX: Changed '*' to '/(.*)' to prevent Vercel/Express regex crash
+app.options('/(.*)', cors(corsOptions));
+
 // DB Connection
 dbconnect();
 
-// ✅ Socket.io Setup (For Kitchen Updates)
+// Socket.io Setup (For Kitchen Updates)
 const io = new Server(server, {
   cors: {
     origin: ['https://restaurant-qr-scanner.vercel.app' , "http://localhost:5173"],
@@ -86,7 +98,6 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 
-// ✅ Change app.listen to server.listen
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT} 🚀`);
 });
