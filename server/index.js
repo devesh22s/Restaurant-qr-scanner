@@ -30,11 +30,16 @@ const app = express();
 const server = http.createServer(app); // ✅ Server wrapping
 
 // Middleware
-app.use(helmet()); // ✅ Security Headers
+app.use(helmet({
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+})); // ✅ Security Headers
 app.use(express.json());
 app.use(cors({
   origin: ['https://restaurant-qr-scanner.vercel.app' , "http://localhost:5173"],
-  credentials: true
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true,
+  optionsSuccessStatus: 200
 }));
 
 // DB Connection
