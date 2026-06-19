@@ -61,8 +61,23 @@ export default function Register() {
     }
   }, [tableSlug]);
 
-  const handleChange = (e) =>
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+  const { name, value } = e.target;
+
+  if (name === "contact") {
+    // Sirf numbers allow karega aur copy-paste karne par bhi 10 se zyada cut kar dega
+    setFormData({ 
+      ...formData, 
+      [name]: value.replace(/[^0-9]/g, "").slice(0, 10) 
+    });
+  } else {
+    // Name, Email, Password ke liye aapka purana logic waise ka waisa chalega
+    setFormData({ 
+      ...formData, 
+      [name]: value 
+    });
+  }
+};
 
   const handleConfirmPasswordChange = (e) =>
     setConfirmPassword(e.target.value);
@@ -208,6 +223,9 @@ export default function Register() {
                       name="contact"
                       value={formData.contact}
                       onChange={handleChange}
+                      inputMode="numeric"
+                      pattern="[0-9]{10}"
+                      title="Please enter a valid 10-digit mobile number"
                       className="w-full bg-[#0a0a0a] border border-white/10 text-yellow-50 placeholder-gray-600 text-sm rounded-lg pl-12 pr-4 py-3.5 focus:outline-none focus:border-yellow-500/50 focus:ring-1 focus:ring-yellow-500/50 transition-all"
                       placeholder="9876543210"
                       required

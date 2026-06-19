@@ -48,5 +48,10 @@ const orderSchema = new mongoose.Schema({
   razorPayPaymentId: String,
 }, { timestamps: true });
 
+// ✅ OPTIMIZATION: Queries ko milliseconds mein laane ke liye Indexes
+orderSchema.index({ paymentStatus: 1 }); 
+orderSchema.index({ orderStatus: 1, createdAt: -1 }); 
+orderSchema.index({ userId: 1, sessionToken: 1 }); 
+
 const Order = mongoose.model('Order', orderSchema);
 export default Order;

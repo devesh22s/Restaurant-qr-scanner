@@ -4,11 +4,13 @@ import Order from "../model/order.js";
 import Cart from "../model/cart.js";
 import Coupon from "../model/coupon.js"; 
 import Menu from "../model/menu.js"; 
-import myModel from "../model/User.js";
+import User from "../model/User.js"; // ✅ myModel ki jagah User kar diya
 import Table from "../model/table.js"; 
 import { SuccessResponse, ErrorResponse } from "../utils/responseWrapper.js";
 
-// ... (Razorpay Init & generateOrderNumber same as before) ...
+// ==========================================
+// ✅ RAZORPAY INITIALIZATION
+// ==========================================
 let razorpay;
 try {
     const keyId = process.env.RAZORPAY_API_KEY || process.env.RAZORPAY_KEY_ID;
@@ -20,10 +22,10 @@ try {
 
 const generateOrderNumber = () => `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-// ... (placeOrder function SAME as before) ...
+// ==========================================
+// ✅ 1. PLACE NEW ORDER (CASH & ONLINE)
+// ==========================================
 export const placeOrder = async (req, res, next) => {
-  // ... (Apka purana placeOrder code yahan same rahega) ...
-  // (Main poora code repeat nahi kar raha space bachane ke liye, bas neeche naya function dekhein)
   try {
     const { 
       couponCode, paymentMethod, tableNumber, 
@@ -142,7 +144,9 @@ export const placeOrder = async (req, res, next) => {
   }
 };
 
-// ... (verifyPayment, handlePostOrderActions, getAdminStats, markOrderAsPaid, updateOrderStatus SAME as before) ...
+// ==========================================
+// ✅ 2. VERIFY RAZORPAY PAYMENT
+// ==========================================
 export const verifyPayment = async (req, res, next) => {
     try {
         const { razorPayOrderId, razorPayPaymentId, razorPaySignature } = req.body;
@@ -160,20 +164,17 @@ export const verifyPayment = async (req, res, next) => {
             return ErrorResponse(res, 400, "Payment verification failed");
         }
 
-        // ✅ Success
         order.paymentStatus = 'success';
         order.razorPayPaymentId = razorPayPaymentId;
         order.razorPaySignature = razorPaySignature;
         await order.save();
 
-        // 🚨 HERE: Ab hum Cart Khali karenge kyunki payment aa gaya
         try {
             const query = order.userId ? { userId: order.userId } : { sessionToken: order.sessionToken };
             await Cart.findOneAndDelete(query);
             
-            // Update User Stats
             if(order.userId) {
-                await myModel.findByIdAndUpdate(order.userId, { $inc: { totalOrders: 1, totalSpend: order.billDetails.finalAmount } });
+                await User.findByIdAndUpdate(order.userId, { $inc: { totalOrders: 1, totalSpend: order.billDetails.finalAmount } });
             }
         } catch(e) { console.log("Cart Clear Error:", e); }
 
@@ -184,6 +185,9 @@ export const verifyPayment = async (req, res, next) => {
     } catch (error) { next(error); }
 };
 
+// ==========================================
+// ✅ HELPER: POST-ORDER ACTIONS (Tables, Coupons, Socket)
+// ==========================================
 const handlePostOrderActions = async (req, order, cart, couponId, tableNum, userType, userId, amount, shouldClearCart) => {
     if (couponId) await Coupon.findByIdAndUpdate(couponId, { $inc: { usedCount: 1 } });
     if (tableNum) {
@@ -204,30 +208,52 @@ const handlePostOrderActions = async (req, order, cart, couponId, tableNum, user
         await cart.save();
         if (userType === 'user') {
             try {
-                await myModel.findByIdAndUpdate(userId, { $inc: { totalOrders: 1, totalSpend: amount } });
+                await User.findByIdAndUpdate(userId, { $inc: { totalOrders: 1, totalSpend: amount } });
             } catch(e) {}
         }
     }
 };
 
+// ==========================================
+// ✅ 3. GET ADMIN DASHBOARD STATS (Optimized)
+// ==========================================
 export const getAdminStats = async (req, res, next) => {
     try {
-        const revenueData = await Order.aggregate([
-            { $match: { paymentStatus: "success" } },
-            { $group: { _id: null, total: { $sum: "$billDetails.finalAmount" } } }
+        const [
+            revenueData, 
+            totalOrders, 
+            pendingOrders, 
+            completedOrders, 
+            activeTables, 
+            totalMenu, 
+            recentOrders
+        ] = await Promise.all([
+            Order.aggregate([
+                { $match: { paymentStatus: "success" } },
+                { $group: { _id: null, total: { $sum: "$billDetails.finalAmount" } } }
+            ]),
+            Order.countDocuments(),
+            Order.countDocuments({ orderStatus: "pending" }),
+            Order.countDocuments({ orderStatus: "served" }),
+            Table.countDocuments({ isOccupied: true }),
+            Menu.countDocuments(),
+            Order.find().sort({ createdAt: -1 }).limit(5)
         ]);
-        const totalRevenue = revenueData.length > 0 ? revenueData[0].total : 0;
-        const totalOrders = await Order.countDocuments();
-        const pendingOrders = await Order.countDocuments({ orderStatus: "pending" });
-        const completedOrders = await Order.countDocuments({ orderStatus: "served" });
-        const activeTables = await Table.countDocuments({ isOccupied: true }); 
-        const totalMenu = await Menu.countDocuments(); 
-        const recentOrders = await Order.find().sort({ createdAt: -1 }).limit(5);
 
-        res.status(200).json({ success: true, stats: { totalRevenue, totalOrders, pendingOrders, completedOrders, activeTables, totalMenu, recentOrders } });
-    } catch (error) { next(error); }
+        const totalRevenue = revenueData.length > 0 ? revenueData[0].total : 0;
+
+        res.status(200).json({ 
+            success: true, 
+            stats: { totalRevenue, totalOrders, pendingOrders, completedOrders, activeTables, totalMenu, recentOrders } 
+        });
+    } catch (error) { 
+        next(error); 
+    }
 };
 
+// ==========================================
+// ✅ 4. UPDATE ORDER STATUS (Kitchen/Admin)
+// ==========================================
 export const updateOrderStatus = async (req, res, next) => {
     try {
         const { orderId } = req.params;
@@ -239,6 +265,9 @@ export const updateOrderStatus = async (req, res, next) => {
     } catch (error) { next(error); }
 };
 
+// ==========================================
+// ✅ 5. MANUAL MARK AS PAID (Cash Orders)
+// ==========================================
 export const markOrderAsPaid = async (req, res) => {
     try {
         const { orderId } = req.body;
@@ -251,27 +280,19 @@ export const markOrderAsPaid = async (req, res) => {
 };
 
 // ==========================================
-// ✅ 3. DELETE ORDER (New Feature)
+// ✅ 6. DELETE/CANCEL ORDER 
 // ==========================================
 export const deleteOrder = async (req, res) => {
     try {
         const { id } = req.params;
-        
-        // Sirf wahi order delete karo jo 'pending' payment waale hain
-        // Taki galti se paid order delete na ho
         const order = await Order.findOneAndDelete({ 
             _id: id, 
-            paymentStatus: { $in: ['pending', 'failed'] } // Allow failed too
+            paymentStatus: { $in: ['pending', 'failed'] } 
         });
         
         if (!order) {
             return res.status(404).json({ success: false, message: "Order not found or already paid" });
         }
-        
-        // Agar table occupy ho gayi thi is order se, to use free mat karo
-        // Kyunki banda shayad wahi baitha hai aur Cash order karne wala hai.
-        // Isliye Table Free logic yahan nahi lagayenge.
-
         return res.status(200).json({ success: true, message: "Cancelled order deleted" });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
@@ -279,17 +300,15 @@ export const deleteOrder = async (req, res) => {
 };
 
 // ==========================================
-// ✅ 4. GET ALL ORDERS (Updated Filter)
+// ✅ 7. GET ALL ORDERS (For Admin)
 // ==========================================
 export const getAllOrders = async (req, res, next) => {
     try {
-        // 🔥 Filter: Show All CASH orders + Only PAID Online Orders
-        // "Pending Online Orders" ko admin panel se chhupa do
         const orders = await Order.find({
             $or: [
-                { paymentMethod: 'cash' }, // Cash wale saare dikhao
-                { paymentMethod: 'razorpay', paymentStatus: 'success' }, // Online wale sirf success
-                { paymentMethod: 'razorpay', paymentStatus: 'failed' } // Failed wale bhi dikha sakte ho (optional)
+                { paymentMethod: 'cash' }, 
+                { paymentMethod: 'razorpay', paymentStatus: 'success' }, 
+                { paymentMethod: 'razorpay', paymentStatus: 'failed' } 
             ]
         }).sort({ createdAt: -1 }).populate('items.menuItemId');
         
@@ -298,16 +317,15 @@ export const getAllOrders = async (req, res, next) => {
 };
 
 // ==========================================
-// ✅ 5. GET MY ORDERS (Updated Filter)
+// ✅ 8. GET MY ORDERS (For Customer)
 // ==========================================
 export const getMyOrders = async (req, res, next) => {
     try {
         const { type, id } = req.identity; 
         
-        // 🔥 Filter applied here too for Customer
         const orders = await Order.find({
             $and: [
-                { $or: [ { userId: id }, { sessionToken: id } ] }, // User match
+                { $or: [ { userId: id }, { sessionToken: id } ] }, 
                 { 
                     $or: [
                         { paymentMethod: 'cash' }, 

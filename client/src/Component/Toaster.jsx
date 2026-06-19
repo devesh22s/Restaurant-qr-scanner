@@ -5,7 +5,7 @@ const Toaster = ({ toasts, onRemove }) => {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50 w-full max-w-sm space-y-2">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col-reverse">
       {toasts.map((toast) => (
         <Toast
           key={toast.id}
